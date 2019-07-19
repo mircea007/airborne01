@@ -1,0 +1,1 @@
+BGCOL = "url('bg.png')";

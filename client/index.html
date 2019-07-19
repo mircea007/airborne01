@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Airborne</title>
+    <style>
+      body {
+        margin: 0;
+        overflow: hidden;
+        font-family: Verdana, Helvetica, sans-serif;
+      }
+      .form {
+        position: absolute;
+        width: 80%;
+        height: calc( 40vh + 39px );
+        left: 10%;
+        top: 10vh;
+        background-color: rgba(0, 0, 0, 0.5);
+        text-align: center;
+        padding: 10px 10px 10px 10px;
+        padding-top: calc( 40vh - 39px );
+        color: white;
+      }
+      .form input{
+        border: 2px solid white;
+        background-color: rgba(0, 0, 0, 0);
+        color: white;
+        height: 30px;
+        font-size: 25px;
+      }
+      .form button{
+        font-size: 25px;
+        background-color: red;
+        color: white;
+        border: none;
+        padding: 10px 10px 10px 10px;
+        transition: 0.3s;
+      }
+      .form button:hover {
+        background-color: rgb(0, 255, 100);
+      }
+    </style>
+  </head>
+  <body>
+    <!--<img src = "IMG/plane.png" style = "position: absolute;z-index: 2;"> -->
+    <script src = "/socket.io/socket.io.js"></script>
+    <!--<script src = "const.js"></script> -->
+    <canvas id = "c" style = "position: absolute;z-index: -1;float: top;"></canvas>
+    <div class = "form">
+      <h1 style = "margin: 0;">Airborne</h1><br>
+      <input type = "text" id = "nickname">
+      <h2 id = "killer"></h2>
+      <script>
+        var socket = io();
+        
+        SPEED = 10;
+        
+        BGCOL = 'black';
+        PLAYERWIDTH = 200;
+        BULLETWIDTH = 10;
+        HEALTHWIDTH = 80;
+        ARENA_SIZE = 10000;
+        MINIMAP_SIZE = 150;
+        NUM_SECTORS = 5;
+        
+        var form = document.getElementsByClassName("form")[0];
+        var c    = document.getElementById("c");
+        var img = {};
+        img.player     = new Image();
+        img.player.src = "/client/img/plane.png";
+        img.bullet     = new Image();
+        img.bullet.src = "/client/img/bullet.png";
+        img.map        = new Image();
+        img.map.src    = "/client/img/map.png";
+        
+        var ID;
+        var inGame = false;
+        
+        var kills = "";
+        
+        var mousex = 0, mousey = 0;
+        
+        c.width = window.innerWidth;
+        c.height = window.innerHeight;
+        var ctx = c.getContext("2d");
+        ctx.fillStyle = BGCOL
+        ctx.fillRect(0, 0, c.width, c.height);
+      
+        Players = [];
+        Bullets = [];
+      
+        function join(){
+          socket.emit('join',
+          {
+            name: document.getElementById("nickname").value,
+            stat: "guest",
+            pass: "",
+          });
+        }
+
+        // login        
+        socket.on('loginConfirm', function(data){
+          ID = data.id;
+          form.style.display = "none";
+          inGame = true;
+        });
+      
+        socket.on('loginDenial', function(){});
+      
+        // server updates
+        socket.on('playerUpdate', function(data){
+          Players = data.players;
+        });
+        
+        socket.on('bulletUpdate', function(data){
+          Bullets = data.bullets;
+        });
+        
+        socket.on('killed', function(data){
+          ID = null;
+          form.style.display = "block";
+          inGame = false;
+          document.getElementById('killer').innerHTML = "You where killed by " + Players[data.killer].name;
+        });
+        
+        socket.on('kill', function(data){
+          kills = "You killed " + Players[data.victim].name;
+          setTimeout(function(){kills = ""}, 5000);
+        });
+        
+        // client events
+        document.onkeydown = function(evt){
+          socket.emit('keyState', {key: evt.keyCode, state: true});
+        };
+        
+        document.onkeyup = function(evt){
+          socket.emit('keyState', {key: evt.keyCode, state: false});
+        };
+        
+        document.onmousemove = function(evt){
+          mousex = evt.clientX;
+          mousey = evt.clientY;
+        }
+        
+        // the math
+        function getDistance( x1, y1, x2, y2 ){
+          return Math.sqrt((x1 - x2) * (x1 - x2) + (y1 - y2) * (y1 - y2));
+        }
+        
+        function getMouseAngle( x, y ){
+          mx = mousex + Players[ID].x - c.width  / 2;
+          my = mousey + Players[ID].y - c.height / 2;
+          if( my < y )
+            return Math.asin((mx - x) / getDistance(x, y, mx, my));
+          else
+            return Math.PI - Math.asin((mx - x) / getDistance(x, y, mx, my));
+        }
+        
+        // draw
+        setInterval(function(){
+          if( inGame && getDistance(Players[ID].x, Players[ID].y, mousex, mousey) >= SPEED )
+            socket.emit('mouseAngle', getMouseAngle(Players[ID].x, Players[ID].y));
+          
+          // background
+          c.width = window.innerWidth;
+          c.height = window.innerHeight;
+          ctx = c.getContext("2d");
+          ctx.fillRect(0, 0, c.width, c.height);
+          ctx.fillStyle = BGCOL;
+          
+          // follow player
+          if( inGame )
+            ctx.translate(c.width / 2 - Players[ID].x, c.height / 2 - Players[ID].y);
+          
+          ctx.fillStyle = ctx.createPattern(img.map, 'repeat');
+          ctx.fillRect(0, 0, ARENA_SIZE, ARENA_SIZE);
+          ctx.strokeStyle = "red";
+          ctx.lineWidth = 10;
+          ctx.strokeRect(0, 0, ARENA_SIZE, ARENA_SIZE);
+          ctx.lineWidth = 1;
+          ctx.font = "10px Verdana";
+          
+          // players
+          for( var player = 0 ; player < Players.length ; player++ ){
+            if( Players[player] != null ){
+              ctx.translate(Players[player].x, Players[player].y);
+              ctx.rotate(Players[player].dir);
+              ctx.drawImage(img.player, -PLAYERWIDTH / 2, -PLAYERWIDTH / 2, PLAYERWIDTH, PLAYERWIDTH);
+              ctx.rotate(-Players[player].dir);
+              ctx.translate(-Players[player].x, -Players[player].y);
+              
+              ctx.fillStyle = "white";
+              ctx.fillText(Players[player].name, Players[player].x - ctx.measureText(Players[player].name).width / 2, Players[player].y);
+              ctx.fillStyle = "#ddd";
+              ctx.fillRect(Players[player].x - HEALTHWIDTH / 2, Players[player].y + 15, HEALTHWIDTH, 5);
+              ctx.fillStyle = "red";
+              ctx.fillRect(Players[player].x - HEALTHWIDTH / 2, Players[player].y + 15, Players[player].health * HEALTHWIDTH / 100, 5);
+            }
+          }
+          
+          // bullets
+          for( var bullet = 0 ; bullet < Bullets.length ; bullet++ ){
+            if( Bullets[bullet] != null ){
+              ctx.translate(Bullets[bullet].x, Bullets[bullet].y);
+              ctx.rotate(Bullets[bullet].dir);
+              ctx.drawImage(img.bullet, -BULLETWIDTH / 2, -BULLETWIDTH / 2, BULLETWIDTH, BULLETWIDTH);
+              ctx.rotate(-Bullets[bullet].dir);
+              ctx.translate(-Bullets[bullet].x, -Bullets[bullet].y);
+            }
+          }
+          
+          // minimap and kill notification
+          if( inGame ){
+            ctx.translate(Players[ID].x - c.width / 2, Players[ID].y - c.height / 2);
+            
+            // draw frame and background
+            ctx.strokeStyle = "white";
+            ctx.fillStyle = "rgba(0, 0, 0, 0.5)"
+            ctx.rect(c.width - MINIMAP_SIZE - 10, c.height - MINIMAP_SIZE - 10, MINIMAP_SIZE, MINIMAP_SIZE);
+            ctx.stroke();
+            ctx.fill();
+            
+            // draw players
+            for( var player = 0 ; player < Players.length ; player++ ){
+              if( Players[player] != null ){
+                ctx.fillStyle = "blue";
+                ctx.fillRect(
+                  c.width - MINIMAP_SIZE - 10 + Players[player].x * MINIMAP_SIZE / ARENA_SIZE,
+                  c.height - MINIMAP_SIZE - 10 + Players[player].y * MINIMAP_SIZE / ARENA_SIZE,
+                  5,
+                  5
+                );
+              }
+            }
+            
+            // draw sector borders
+            ctx.beginPath();
+            
+            // horizontal
+            var i, j;
+            for( i = 1 ; i < NUM_SECTORS ; i++ ){
+              ctx.moveTo(
+                c.width - MINIMAP_SIZE - 10,
+                c.height - MINIMAP_SIZE - 10 + MINIMAP_SIZE * i / NUM_SECTORS
+              );
+              
+              ctx.lineTo(
+                c.width - 10,
+                c.height - MINIMAP_SIZE - 10 + MINIMAP_SIZE * i / NUM_SECTORS
+              );
+            }
+            
+            // vertical
+            for( i = 1 ; i < NUM_SECTORS ; i++ ){
+              ctx.moveTo(
+                c.width - MINIMAP_SIZE - 10 + MINIMAP_SIZE * i / NUM_SECTORS,
+                c.height - MINIMAP_SIZE - 10
+              );
+              
+              ctx.lineTo(
+                c.width - MINIMAP_SIZE - 10 + MINIMAP_SIZE * i / NUM_SECTORS,
+                c.height - 10
+              );
+            }
+            ctx.stroke();
+            
+            // draw sector names
+            ctx.font = "10px Consolas";
+            
+            var lin = ['A', 'B', 'C', 'D', 'E'];
+            var col = ['1', '2', '3', '4', '5'];
+            var txt;
+            for( i = 0 ; i < NUM_SECTORS ; i++ ){
+              for( j = 0 ; j < NUM_SECTORS ; j++ ){
+                txt = lin[i] + col[j];
+                ctx.fillStyle = "white";
+                ctx.fillText(
+                  txt,
+                  c.width - MINIMAP_SIZE - 10 + MINIMAP_SIZE * j / NUM_SECTORS + MINIMAP_SIZE / NUM_SECTORS / 2 - ctx.measureText(txt).width / 2,
+                  c.height - MINIMAP_SIZE - 10 + MINIMAP_SIZE * i / NUM_SECTORS + MINIMAP_SIZE / NUM_SECTORS / 2,
+                  )
+              }
+            }
+            
+            // draw player position
+            ctx.fillStyle = "red";
+            ctx.fillRect(
+              c.width - MINIMAP_SIZE - 10 + Players[ID].x * MINIMAP_SIZE / ARENA_SIZE,
+              c.height - MINIMAP_SIZE - 10 + Players[ID].y * MINIMAP_SIZE / ARENA_SIZE,
+              5,
+              5
+            );
+            
+            // kill notification
+            ctx.fillStyle = "red";
+            ctx.font = "30px Verdana";
+            ctx.fillText(kills, (c.width - ctx.measureText(kills).width) / 2, c.height - 50);
+          }
+        }, 1000/25);
+      </script>
+      <button onclick = "join();">Join</button>
+    </div>
+  </body>
+ </html>
