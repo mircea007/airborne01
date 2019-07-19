@@ -6,25 +6,6 @@ app.get('/', function(req, res){
   res.sendFile(__dirname + '/client/index.html');
 });
 app.use('/client', express.static(__dirname + '/client'));
-/*
-var mysql = require('mysql');
-
-var con = mysql.createConnection({
-  host: "localhost",
-  user: "Airborne",
-  password: "E+DLiDZW.W,2k>wLE9f>rAZs1$7jjPPY",
-  database: "airborne"
-});
-
-con.connect(function(err){
-  //if (err) throw err;
-  console.log("Connected to DB");
-  var sql = "";
-  con.query(sql, function(err, result){
-    //if (err) throw err;
-  });
-});
-*/
 
 serv.listen(process.env.PORT || 2000);
 
