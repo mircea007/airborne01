@@ -13,8 +13,30 @@ function getDistance( x1, y1, x2, y2 ){
   return Math.sqrt((x1 - x2) * (x1 - x2) + (y1 - y2) * (y1 - y2));
 }
 
-function Delete(arr, i){
-  arr.splice(i, 1);
+var planes = {
+  normal: {
+    MAX_HEALTH: 100,
+    HEALTH_REGEN: 10,
+    SPEED: 10,
+    BULLET_SPEED: 50,
+    BULLET_DURATION: 25,
+    BULLET_DAMAGE: 10,
+    KILL_DISTANCE: 15,
+    IMG_SRC: 'client/img/plane.png',
+    PLAYERWIDTH: 200
+  },
+  
+  Xplane: {
+    MAX_HEALTH: 1000000,
+    HEALTH_REGEN: 1000000,
+    SPEED: 30,
+    BULLET_SPEED: 100,
+    BULLET_DURATION: 100,
+    BULLET_DAMAGE: 1000000,
+    KILL_DISTANCE: 30,
+    IMG_SRC: 'client/img/Xplane.png',
+    PLAYERWIDTH: 30
+  }
 }
 
 MAX_HEALTH = 100;
@@ -34,6 +56,40 @@ var Sockets = {};
 var Bullets = {};
 var num_players = 0;
 var num_bullets = 0;
+var num_autos   = 0;
+
+function shootBullet(ID){
+  Bullets[num_bullets] = {
+    shooter: ID,
+    dir: Players[ID].dir,
+    x: Players[ID].x,
+    y: Players[ID].y,
+    age: 0,
+    config: Players[ID].plane
+  };
+  num_bullets++;
+}
+
+function createAuto(Func, Data){
+  Players[num_players] = {
+    name: '',
+    x: Math.floor(ARENA_SIZE * Math.random()),
+    y: Math.floor(ARENA_SIZE * Math.random()),
+    dir: 0,
+    health: MAX_HEALTH,
+    score: 0,
+    plane: planes.Xplane
+  };
+  Data.id = num_players;
+  num_players++;
+  
+  Autos[num_autos] = {
+    run: Func,
+    data: Data
+  }
+  num_autos++;
+}
+
 var io = require('socket.io')(serv,{});
 io.sockets.on('connection', function(socket){
   socket.id = null;
@@ -43,9 +99,9 @@ io.sockets.on('connection', function(socket){
   // regen
   setInterval(function(){
     if( socket.id != null && Players[socket.id] != null ){
-      Players[socket.id].health += HEALTH_REGEN;
-      if( Players[socket.id].health > MAX_HEALTH )
-        Players[socket.id].health = MAX_HEALTH;
+      Players[socket.id].health += Players[socket.id].plane.HEALTH_REGEN;
+      if( Players[socket.id].health > Players[socket.id].plane.MAX_HEALTH )
+        Players[socket.id].health = Players[socket.id].plane.MAX_HEALTH;
     }
   }, REGEN_RATE);
   
@@ -60,7 +116,8 @@ io.sockets.on('connection', function(socket){
         y: Math.floor(ARENA_SIZE * Math.random()),
         dir: 0,
         health: MAX_HEALTH,
-        score: 0
+        score: 0,
+        plane: planes.normal
       };
       num_players++;
       socket.id = num_players - 1;
@@ -74,46 +131,19 @@ io.sockets.on('connection', function(socket){
     socket.pressing[data.key] = data.state;
     if( socket.id != null && Players[socket.id] != null ){
       if( socket.pressing[32] ){// create bullet
-        Bullets[num_bullets] = {
-          shooter: socket.id,
-          dir: Players[socket.id].dir,
-          x: Players[socket.id].x,
-          y: Players[socket.id].y,
-          age: 0
-        };
-        num_bullets++;
+        shootBullet(socket.id);
       }
     }
   });
   
   // get mouse angle
   socket.on('mouseAngle', function(angle){
-    if( socket.id != null ){
-      var incx = Math.sin(angle) * SPEED;
-      var incy = Math.sqrt(SPEED * SPEED - incx * incx);
-    
-      if( Players == undefined )
-        console.log('nononono');
-    
-      var oldx = Players[socket.id].x;
-      var oldy = Players[socket.id].y;
-    
-      if( angle > Math.PI / 2 ){
-        Players[socket.id].x += incx;
-        Players[socket.id].y += incy;
-      }else{
-        Players[socket.id].x += incx;
-        Players[socket.id].y -= incy;
-      }
-      
-      // If the user wants to get ot of the arena
-      if( (Players[socket.id].x < 0 || Players[socket.id].x > ARENA_SIZE) || (Players[socket.id].y < 0 || Players[socket.id].y > ARENA_SIZE) ){
-        Players[socket.id].x = oldx;
-        Players[socket.id].y = oldy;
-      }
-      
+    if( socket.id != null )
       Players[socket.id].dir = angle;
-    }
+  });
+  
+  socket.on('upgrade', function(){
+    Players[socket.id].plane = planes.Xplane;
   });
   
   // disconect
@@ -122,14 +152,84 @@ io.sockets.on('connection', function(socket){
     delete Sockets[socket.id];
   });
 });
+/*
+createAuto(function(data){
+  var ID = data.id;
+  
+  var angle;
+  var x = Players[ID].x;
+  var y = Players[ID].y;
+  
+  if( Object.keys(Players).length > 1 ){
+    var nearest = null;
+    for( var player in Players ){
+      if( player != ID ){
+        if( nearest == null ){
+          nearest = player;
+        }else{
+          if( getDistance(Players[nearest].x, Players[nearest].y, Players[ID].x, Players[ID].y) > getDistance(Players[player].x, Players[player].y, Players[ID].x,   Players[ID].y) )
+            nearest = player;
+        }
+      }
+    }
+    
+    mx = Players[nearest].x;
+    my = Players[nearest].y;
+  }else{
+    mx = 0;
+    my = 0;
+  }
+    
+  if( my < y )
+    angle = Math.asin((mx - x) / getDistance(x, y, mx, my));
+  else
+    angle = Math.PI - Math.asin((mx - x) / getDistance(x, y, mx, my));
+  
+  Players[ID].dir = angle;
+  Players[ID].health = MAX_HEALTH;
+  
+  shootBullet(ID);
+}, {});*/
 
-// make bullets go forward and update clients of new coords
+// make objects go forward, update clients of new coords and run autos
 setInterval(function(){
   var incx, incy;
+  
+  // run Autos
+  for( var auto in Autos )
+    Autos[auto].run(Autos[auto].data);
+  
+  // make players go forward
+  for( player in Players ){
+    angle = Players[player].dir;
+    incx = Math.sin(angle) * Players[player].plane.SPEED;
+    incy = Math.sqrt(Players[player].plane.SPEED * Players[player].plane.SPEED - incx * incx);
+    
+    if( Players == undefined )
+      console.log('nononono');
+    
+    var oldx = Players[player].x;
+    var oldy = Players[player].y;
+    
+    if( angle > Math.PI / 2 ){
+      Players[player].x += incx;
+      Players[player].y += incy;
+    }else{
+      Players[player].x += incx;
+      Players[player].y -= incy;
+    }
+      
+    // If the user wants to get ot of the arena
+    if( (Players[player].x < 0 || Players[player].x > ARENA_SIZE) || (Players[player].y < 0 || Players[player].y > ARENA_SIZE) ){
+      Players[player].x = oldx;
+      Players[player].y = oldy;
+    }
+  }
+  
   for( var bullet in Bullets ){
     if( Bullets[bullet] != null ){
-      incx = Math.sin(Bullets[bullet].dir) * BULLET_SPEED;
-      incy = Math.sqrt(BULLET_SPEED * BULLET_SPEED - incx * incx);
+      incx = Math.sin(Bullets[bullet].dir) * Bullets[bullet].config.BULLET_SPEED;
+      incy = Math.sqrt(Bullets[bullet].config.BULLET_SPEED * Bullets[bullet].config.BULLET_SPEED - incx * incx);
     
       if( Bullets[bullet].dir > Math.PI / 2 ){
         Bullets[bullet].x += incx;
@@ -140,9 +240,9 @@ setInterval(function(){
       }
       
       for( var player in Players ){
-        if( Players[player] != null && Bullets[bullet] != null ){
-          if( getDistance(Bullets[bullet].x, Bullets[bullet].y, Players[player].x, Players[player].y) <= KILL_DISTANCE && player != Bullets[bullet].shooter ){
-            Players[player].health -= BULLET_DAMAGE;
+        if( Players[player] != null && Bullets[bullet] != null && Players[Bullets[bullet].shooter] != null ){
+          if( getDistance(Bullets[bullet].x, Bullets[bullet].y, Players[player].x, Players[player].y) <= Bullets[bullet].config.KILL_DISTANCE && player != Bullets[bullet].shooter ){
+            Players[player].health -= Bullets[bullet].config.BULLET_DAMAGE;
             if( Players[player].health <= 0 ){
               if( Sockets[player] != null )
                 Sockets[player].emit('killed', {killer: Bullets[bullet].shooter});
@@ -160,12 +260,13 @@ setInterval(function(){
     
       if( Bullets[bullet] != null ){
         Bullets[bullet].age += 1;
-        if( Bullets[bullet].age > BULLET_DURATION )
+        if( Bullets[bullet].age > Bullets[bullet].config.BULLET_DURATION )
           delete Bullets[bullet];
       }
     }
   }
   
+  // update coords
   io.sockets.emit('playerUpdate', {players: Players});
   io.sockets.emit('bulletUpdate', {bullets: Bullets});
 }, 1000/25);

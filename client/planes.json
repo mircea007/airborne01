@@ -1,0 +1,23 @@
+{
+  "normal": {
+    MAX_HEALTH = 100,
+    HEALTH_REGEN = 10,
+    SPEED = 10,
+    BULLET_SPEED = 50,
+    BULLET_DURATION = 25,
+    BULLET_DAMAGE = 10,
+    KILL_DISTANCE = 15,
+    IMG_SRC = 'client/img/plane.png'
+  }
+  
+  "Xplane": {
+    MAX_HEALTH = 1000000,
+    HEALTH_REGEN = 1000000,
+    SPEED = 30,
+    BULLET_SPEED = 100,
+    BULLET_DURATION = 100,
+    BULLET_DAMAGE = 1000000,
+    KILL_DISTANCE = 30,
+    IMG_SRC = 'client/img/Xplane.png'
+  }
+}

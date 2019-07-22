@@ -186,7 +186,9 @@
             if( Players[player] != null ){
               ctx.translate(Players[player].x, Players[player].y);
               ctx.rotate(Players[player].dir);
-              ctx.drawImage(img.player, -PLAYERWIDTH / 2, -PLAYERWIDTH / 2, PLAYERWIDTH, PLAYERWIDTH);
+              img.player = new Image();
+              img.player.src = Players[player].plane.IMG_SRC;
+              ctx.drawImage(img.player, -Players[player].plane.PLAYERWIDTH / 2, -Players[player].plane.PLAYERWIDTH / 2, Players[player].plane.PLAYERWIDTH, Players[player].plane.PLAYERWIDTH);
               ctx.rotate(-Players[player].dir);
               ctx.translate(-Players[player].x, -Players[player].y);
               
@@ -195,7 +197,7 @@
               ctx.fillStyle = "#ddd";
               ctx.fillRect(Players[player].x - HEALTHWIDTH / 2, Players[player].y + 15, HEALTHWIDTH, 5);
               ctx.fillStyle = "red";
-              ctx.fillRect(Players[player].x - HEALTHWIDTH / 2, Players[player].y + 15, Players[player].health * HEALTHWIDTH / 100, 5);
+              ctx.fillRect(Players[player].x - HEALTHWIDTH / 2, Players[player].y + 15, Players[player].health * HEALTHWIDTH / Players[player].plane.MAX_HEALTH, 5);
             }
           }
           
