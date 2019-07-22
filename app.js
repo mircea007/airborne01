@@ -13,6 +13,10 @@ function getDistance( x1, y1, x2, y2 ){
   return Math.sqrt((x1 - x2) * (x1 - x2) + (y1 - y2) * (y1 - y2));
 }
 
+function Delete(arr, i){
+  arr.splice(i, 1);
+}
+
 MAX_HEALTH = 100;
 HEALTH_REGEN = 10;
 REGEN_RATE = 1000;
@@ -22,10 +26,12 @@ BULLET_DURATION = 25;
 BULLET_DAMAGE = 10;
 ARENA_SIZE = 10000;
 KILL_DISTANCE = 15;
+MAX_PLAYERS = 20;
 
-var Players = [];
-var Sockets = [];
-var Bullets = [];
+var Autos   = {};
+var Players = {};
+var Sockets = {};
+var Bullets = {};
 var num_players = 0;
 var num_bullets = 0;
 var io = require('socket.io')(serv,{});
@@ -47,17 +53,20 @@ io.sockets.on('connection', function(socket){
   socket.on('join', function(data){
     if( data.name == "" )
       data.name = "unnamed";
-    Players[num_players] = {
-      name: data.name,
-      x: Math.floor(ARENA_SIZE * Math.random()),
-      y: Math.floor(ARENA_SIZE * Math.random()),
-      dir: 0,
-      health: MAX_HEALTH
-    };
-    num_players++;
-    socket.id = num_players - 1;
-    Sockets[socket.id] = socket;
-    socket.emit('loginConfirm', {id: socket.id});
+    if( num_players < MAX_PLAYERS ){
+      Players[num_players] = {
+        name: data.name,
+        x: Math.floor(ARENA_SIZE * Math.random()),
+        y: Math.floor(ARENA_SIZE * Math.random()),
+        dir: 0,
+        health: MAX_HEALTH,
+        score: 0
+      };
+      num_players++;
+      socket.id = num_players - 1;
+      Sockets[socket.id] = socket;
+      socket.emit('loginConfirm', {id: socket.id});
+    }
   });
   
   // get keypress
@@ -79,7 +88,7 @@ io.sockets.on('connection', function(socket){
   
   // get mouse angle
   socket.on('mouseAngle', function(angle){
-    if( socket.id != null && Players[socket.id] != null ){
+    if( socket.id != null ){
       var incx = Math.sin(angle) * SPEED;
       var incy = Math.sqrt(SPEED * SPEED - incx * incx);
     
@@ -117,7 +126,7 @@ io.sockets.on('connection', function(socket){
 // make bullets go forward and update clients of new coords
 setInterval(function(){
   var incx, incy;
-  for( var bullet = 0 ; bullet < num_bullets ; bullet++ ){
+  for( var bullet in Bullets ){
     if( Bullets[bullet] != null ){
       incx = Math.sin(Bullets[bullet].dir) * BULLET_SPEED;
       incy = Math.sqrt(BULLET_SPEED * BULLET_SPEED - incx * incx);
@@ -130,14 +139,17 @@ setInterval(function(){
         Bullets[bullet].y -= incy;
       }
       
-      for( var player = 0 ; player < num_players ; player++ ){
+      for( var player in Players ){
         if( Players[player] != null && Bullets[bullet] != null ){
           if( getDistance(Bullets[bullet].x, Bullets[bullet].y, Players[player].x, Players[player].y) <= KILL_DISTANCE && player != Bullets[bullet].shooter ){
             Players[player].health -= BULLET_DAMAGE;
             if( Players[player].health <= 0 ){
-              Sockets[player].emit('killed', {killer: Bullets[bullet].shooter});
-              Sockets[Bullets[bullet].shooter].emit('kill', {victim: player});
+              if( Sockets[player] != null )
+                Sockets[player].emit('killed', {killer: Bullets[bullet].shooter});
+              if( Sockets[Bullets[bullet].shooter] != null )
+                Sockets[Bullets[bullet].shooter].emit('kill', {victim: player});
               Sockets[player].id = null;
+              Players[Bullets[bullet].shooter].score += 15;
               setTimeout(function(){}, 10);
               delete Players[player];
             }

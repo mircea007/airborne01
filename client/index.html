@@ -41,9 +41,7 @@
     </style>
   </head>
   <body>
-    <!--<img src = "IMG/plane.png" style = "position: absolute;z-index: 2;"> -->
     <script src = "/socket.io/socket.io.js"></script>
-    <!--<script src = "const.js"></script> -->
     <canvas id = "c" style = "position: absolute;z-index: -1;float: top;"></canvas>
     <div class = "form">
       <h1 style = "margin: 0;">Airborne</h1><br>
@@ -61,6 +59,10 @@
         ARENA_SIZE = 10000;
         MINIMAP_SIZE = 150;
         NUM_SECTORS = 5;
+        LEADERNAMEW = 250;
+        LEADERSCOREW = 50;
+        LEADERH = 30;
+        PADDING = 10;
         
         var form = document.getElementsByClassName("form")[0];
         var c    = document.getElementById("c");
@@ -180,7 +182,7 @@
           ctx.font = "10px Verdana";
           
           // players
-          for( var player = 0 ; player < Players.length ; player++ ){
+          for( var player in Players ){
             if( Players[player] != null ){
               ctx.translate(Players[player].x, Players[player].y);
               ctx.rotate(Players[player].dir);
@@ -198,7 +200,7 @@
           }
           
           // bullets
-          for( var bullet = 0 ; bullet < Bullets.length ; bullet++ ){
+          for( var bullet in Bullets ){
             if( Bullets[bullet] != null ){
               ctx.translate(Bullets[bullet].x, Bullets[bullet].y);
               ctx.rotate(Bullets[bullet].dir);
@@ -208,80 +210,81 @@
             }
           }
           
-          // minimap and kill notification
-          if( inGame ){
+          // minimap
+          if( inGame )
             ctx.translate(Players[ID].x - c.width / 2, Players[ID].y - c.height / 2);
             
-            // draw frame and background
-            ctx.strokeStyle = "white";
-            ctx.fillStyle = "rgba(0, 0, 0, 0.5)"
-            ctx.rect(c.width - MINIMAP_SIZE - 10, c.height - MINIMAP_SIZE - 10, MINIMAP_SIZE, MINIMAP_SIZE);
-            ctx.stroke();
-            ctx.fill();
+          // draw frame and background
+          ctx.strokeStyle = "white";
+          ctx.fillStyle = "rgba(0, 0, 0, 0.5)"
+          ctx.rect(c.width - MINIMAP_SIZE - 10, c.height - MINIMAP_SIZE - 10, MINIMAP_SIZE, MINIMAP_SIZE);
+          ctx.stroke();
+          ctx.fill();
             
-            // draw players
-            for( var player = 0 ; player < Players.length ; player++ ){
-              if( Players[player] != null ){
-                ctx.fillStyle = "blue";
-                ctx.fillRect(
-                  c.width - MINIMAP_SIZE - 10 + Players[player].x * MINIMAP_SIZE / ARENA_SIZE,
-                  c.height - MINIMAP_SIZE - 10 + Players[player].y * MINIMAP_SIZE / ARENA_SIZE,
-                  5,
-                  5
-                );
-              }
-            }
-            
-            // draw sector borders
-            ctx.beginPath();
-            
-            // horizontal
-            var i, j;
-            for( i = 1 ; i < NUM_SECTORS ; i++ ){
-              ctx.moveTo(
-                c.width - MINIMAP_SIZE - 10,
-                c.height - MINIMAP_SIZE - 10 + MINIMAP_SIZE * i / NUM_SECTORS
+          // draw players
+          for( player in Players ){
+            if( Players[player] != null ){
+              ctx.fillStyle = "blue";
+              ctx.fillRect(
+                c.width - MINIMAP_SIZE - 10 + Players[player].x * MINIMAP_SIZE / ARENA_SIZE,
+                c.height - MINIMAP_SIZE - 10 + Players[player].y * MINIMAP_SIZE / ARENA_SIZE,
+                5,
+                5
               );
+            }
+          }
+            
+          // draw sector borders
+          ctx.beginPath();
+            
+          // horizontal
+          var i, j;
+          for( i = 1 ; i < NUM_SECTORS ; i++ ){
+            ctx.moveTo(
+              c.width - MINIMAP_SIZE - 10,
+              c.height - MINIMAP_SIZE - 10 + MINIMAP_SIZE * i / NUM_SECTORS
+            );
               
-              ctx.lineTo(
-                c.width - 10,
-                c.height - MINIMAP_SIZE - 10 + MINIMAP_SIZE * i / NUM_SECTORS
-              );
-            }
+            ctx.lineTo(
+              c.width - 10,
+              c.height - MINIMAP_SIZE - 10 + MINIMAP_SIZE * i / NUM_SECTORS
+            );
+          }
             
-            // vertical
-            for( i = 1 ; i < NUM_SECTORS ; i++ ){
-              ctx.moveTo(
-                c.width - MINIMAP_SIZE - 10 + MINIMAP_SIZE * i / NUM_SECTORS,
-                c.height - MINIMAP_SIZE - 10
-              );
+          // vertical
+          for( i = 1 ; i < NUM_SECTORS ; i++ ){
+            ctx.moveTo(
+              c.width - MINIMAP_SIZE - 10 + MINIMAP_SIZE * i / NUM_SECTORS,
+              c.height - MINIMAP_SIZE - 10
+            );
               
-              ctx.lineTo(
-                c.width - MINIMAP_SIZE - 10 + MINIMAP_SIZE * i / NUM_SECTORS,
-                c.height - 10
-              );
+            ctx.lineTo(
+              c.width - MINIMAP_SIZE - 10 + MINIMAP_SIZE * i / NUM_SECTORS,
+              c.height - 10
+            );
+          }
+          ctx.stroke();
+            
+          // draw sector names
+          ctx.font = "10px Consolas";
+            
+          var lin = ['A', 'B', 'C', 'D', 'E'];
+          var col = ['1', '2', '3', '4', '5'];
+          var txt;
+          for( i = 0 ; i < NUM_SECTORS ; i++ ){
+            for( j = 0 ; j < NUM_SECTORS ; j++ ){
+              txt = lin[i] + col[j];
+              ctx.fillStyle = "white";
+              ctx.fillText(
+                txt,
+                c.width - MINIMAP_SIZE - 10 + MINIMAP_SIZE * j / NUM_SECTORS + MINIMAP_SIZE / NUM_SECTORS / 2 - ctx.measureText(txt).width / 2,
+                c.height - MINIMAP_SIZE - 10 + MINIMAP_SIZE * i / NUM_SECTORS + MINIMAP_SIZE / NUM_SECTORS / 2,
+              )
             }
-            ctx.stroke();
+          }
             
-            // draw sector names
-            ctx.font = "10px Consolas";
-            
-            var lin = ['A', 'B', 'C', 'D', 'E'];
-            var col = ['1', '2', '3', '4', '5'];
-            var txt;
-            for( i = 0 ; i < NUM_SECTORS ; i++ ){
-              for( j = 0 ; j < NUM_SECTORS ; j++ ){
-                txt = lin[i] + col[j];
-                ctx.fillStyle = "white";
-                ctx.fillText(
-                  txt,
-                  c.width - MINIMAP_SIZE - 10 + MINIMAP_SIZE * j / NUM_SECTORS + MINIMAP_SIZE / NUM_SECTORS / 2 - ctx.measureText(txt).width / 2,
-                  c.height - MINIMAP_SIZE - 10 + MINIMAP_SIZE * i / NUM_SECTORS + MINIMAP_SIZE / NUM_SECTORS / 2,
-                  )
-              }
-            }
-            
-            // draw player position
+          // draw player position
+          if( inGame ){
             ctx.fillStyle = "red";
             ctx.fillRect(
               c.width - MINIMAP_SIZE - 10 + Players[ID].x * MINIMAP_SIZE / ARENA_SIZE,
@@ -289,12 +292,40 @@
               5,
               5
             );
-            
-            // kill notification
-            ctx.fillStyle = "red";
-            ctx.font = "30px Verdana";
-            ctx.fillText(kills, (c.width - ctx.measureText(kills).width) / 2, c.height - 50);
           }
+            
+          // kill notification
+          ctx.fillStyle = "red";
+          ctx.font = "30px Verdana";
+          ctx.fillText(kills, (c.width - ctx.measureText(kills).width) / 2, c.height - 50);
+          
+          // leaderboard
+          // transfer Players into array
+          var playersArray = [];
+          var playerarrnum = 0;
+          for( player in Players ){
+            playersArray[playerarrnum] = Players[player];
+            playerarrnum++;
+          }
+          
+          playersArray.sort(function(a, b){b.score - a.score});
+          
+          leaderlenght = 10;
+          if( playersArray.length < 10 )
+            leaderlenght = playersArray.length;
+          
+          ctx.fillStyle = "rgba(0, 0, 0, 0.5)";
+          ctx.fillRect(c.width - LEADERNAMEW - LEADERSCOREW - 5 * PADDING, PADDING, LEADERNAMEW + LEADERSCOREW + 4 * PADDING, leaderlenght * LEADERH + PADDING);
+          ctx.font = "20px Verdana";
+          ctx.fillStyle = "white";
+          for( i = 0 ; i < leaderlenght ; i++ ){
+            ctx.fillText(playersArray[i].name, c.width - LEADERNAMEW - LEADERSCOREW - 4 * PADDING, 2 * PADDING+ 20 + i * LEADERH);
+            ctx.fillText(playersArray[i].score, c.width - 2 * PADDING - LEADERSCOREW, 2 * PADDING + 20 + i * LEADERH);
+          }
+          ctx.beginPath();
+          ctx.moveTo(c.width - 3 * PADDING - LEADERSCOREW, 2 * PADDING);
+          ctx.lineTo(c.width - 3 * PADDING - LEADERSCOREW, PADDING + i * LEADERH);
+          ctx.stroke();
         }, 1000/25);
       </script>
       <button onclick = "join();">Join</button>
