@@ -53,7 +53,7 @@ io.sockets.on('connection', function(socket){
   socket.on('join', function(data){
     if( data.name == "" )
       data.name = "unnamed";
-    if( num_players < MAX_PLAYERS ){
+    if( Object.keys(Players).length < MAX_PLAYERS ){
       Players[num_players] = {
         name: data.name,
         x: Math.floor(ARENA_SIZE * Math.random()),
