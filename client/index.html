@@ -183,7 +183,7 @@
           
           // players
           for( var player in Players ){
-            if( Players[player] != null ){
+            if( Players[player] != null && Players[player].hidden == false ){
               ctx.translate(Players[player].x, Players[player].y);
               ctx.rotate(Players[player].dir);
               img.player = new Image();
@@ -206,7 +206,9 @@
             if( Bullets[bullet] != null ){
               ctx.translate(Bullets[bullet].x, Bullets[bullet].y);
               ctx.rotate(Bullets[bullet].dir);
-              ctx.drawImage(img.bullet, -BULLETWIDTH / 2, -BULLETWIDTH / 2, BULLETWIDTH, BULLETWIDTH);
+              img.bullet = new Image();
+              img.bullet.src = Bullets[bullet].config.BULLET_IMG_SRC;
+              ctx.drawImage(img.bullet, -Bullets[bullet].config.BULLETWIDTH / 2, -Bullets[bullet].config.BULLETWIDTH / 2, Bullets[bullet].config.BULLETWIDTH, Bullets[bullet].config.BULLETWIDTH);
               ctx.rotate(-Bullets[bullet].dir);
               ctx.translate(-Bullets[bullet].x, -Bullets[bullet].y);
             }
@@ -225,7 +227,7 @@
             
           // draw players
           for( player in Players ){
-            if( Players[player] != null ){
+            if( Players[player] != null && Players[player].hidden == false ){
               ctx.fillStyle = "blue";
               ctx.fillRect(
                 c.width - MINIMAP_SIZE - 10 + Players[player].x * MINIMAP_SIZE / ARENA_SIZE,
@@ -306,8 +308,10 @@
           var playersArray = [];
           var playerarrnum = 0;
           for( player in Players ){
-            playersArray[playerarrnum] = Players[player];
-            playerarrnum++;
+            if( Players[player].hidden == false ){
+              playersArray[playerarrnum] = Players[player];
+              playerarrnum++;
+            }
           }
           
           playersArray.sort(function(a, b){b.score - a.score});

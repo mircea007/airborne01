@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Auto Player Management</title>
+  </head>
+  <body>
+    <script src = "/socket.io/socket.io.js"></script>
+    <input type = "password" id = "input">
+    <script>
+      socket = io();
+      
+      function login(){
+        socket.emit('Au*to4&SqBqH(v[}fO8O;lCLjE', {pswd: document.getElementById('input').value});
+      }
+      
+      socket.on('autos', function(autos){
+        document.body.removeChild(document.getElementById('input'));
+        document.body.removeChild(document.getElementById('button'));
+        
+        console.log(autos);
+      });
+    </script>
+    <button id = "button" onclick = "login()">Login</button>
+  </body>
+</html>
