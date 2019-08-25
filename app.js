@@ -15,7 +15,21 @@ function getDistance( x1, y1, x2, y2 ){
   return Math.sqrt((x1 - x2) * (x1 - x2) + (y1 - y2) * (y1 - y2));
 }
 
-function copyObj(Obj){
+function abs( n ){
+  if( n < 0 )
+    return -n;
+  else
+    return n;
+}
+
+function sign( n ){
+  if( n < 0 )
+    return -1;
+  else
+    return 1;
+}
+
+function copyObj( Obj ){
   var obj = {};
   for( prop in Obj ){
     obj[prop] = Obj[prop];
@@ -28,8 +42,8 @@ var planes = {
   normal: {
     MAX_HEALTH: 100,
     HEALTH_REGEN: 10,
-    SPEED: 10,
-    BULLET_SPEED: 50,
+    SPEED: 20,
+    BULLET_SPEED: 60,
     BULLET_DURATION: 25,
     BULLET_DAMAGE: 10,
     KILL_DISTANCE: 15,
@@ -103,14 +117,19 @@ BULLET_DAMAGE = 10;
 ARENA_SIZE = 10000;
 KILL_DISTANCE = 15;
 MAX_PLAYERS = 20;
+SMOKE_DURATION = 30;
+SMOKE_DELAY = 0;
+MAX_ANGLE = Math.PI / 18;/* 5 degrees */
 
 var Autos   = {};
 var Players = {};
 var Sockets = {};
 var Bullets = {};
+var Smoke   = {};
 var num_players = 0;
 var num_bullets = 0;
 var num_autos   = 0;
+var num_smoke   = 0;
 
 function shootBullet(ID){
   Bullets[num_bullets] = {
@@ -268,8 +287,11 @@ io.sockets.on('connection', function(socket){
   
   // get mouse angle
   socket.on('mouseAngle', function(angle){
-    if( socket.id != null )
+    if( socket.id != null ){
+      if( abs(angle - Players[socket.id].dir) > MAX_ANGLE )
+        angle = Players[socket.id].dir + sign(angle - Players[socket.id].dir) * MAX_ANGLE;
       Players[socket.id].dir = angle;
+    }
   });
   
   socket.on('upgrade', function(){
@@ -388,8 +410,31 @@ setInterval(function(){
     }
   }
   
+  for( smoke in Smoke ){
+    Smoke[smoke].age += 1;
+    if( Smoke[smoke].age > SMOKE_DELAY )
+      Smoke[smoke].hidden = false;
+  }
+  
   // update coords
   io.sockets.emit('playerUpdate', {players: Players});
   io.sockets.emit('bulletUpdate', {bullets: Bullets});
+  io.sockets.emit('smokeUpdate', {smoke: Smoke});
 }, 1000/25);
 
+setInterval(function(){
+  for( player in Players ){
+    Smoke[num_smoke] = {
+      x: Players[player].x,
+      y: Players[player].y,
+      hidden: true,
+      age: 0
+    };
+    num_smoke++;
+  }
+  
+  for( smoke in Smoke ){
+    if( Smoke[smoke].age > SMOKE_DURATION )
+      delete Smoke[smoke];
+  }
+}, 1000/50);
