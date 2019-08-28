@@ -15,6 +15,27 @@ function getDistance( x1, y1, x2, y2 ){
   return Math.sqrt((x1 - x2) * (x1 - x2) + (y1 - y2) * (y1 - y2));
 }
 
+function min( a, b ){
+  if( a < b )
+    return a;
+  else
+    return b;
+}
+
+function minSign( a, b ){
+  if( a < b )
+    return -1;
+  else
+    return 1;
+}
+
+function max( a, b ){
+  if( a > b )
+    return a;
+  else
+    return b;
+}
+
 function abs( n ){
   if( n < 0 )
     return -n;
@@ -119,7 +140,7 @@ KILL_DISTANCE = 15;
 MAX_PLAYERS = 20;
 SMOKE_DURATION = 30;
 SMOKE_DELAY = 0;
-MAX_ANGLE = Math.PI / 18;/* 5 degrees */
+MAX_ANGLE = Math.PI / 18;/* 10 degrees */
 
 var Autos   = {};
 var Players = {};
@@ -288,8 +309,15 @@ io.sockets.on('connection', function(socket){
   // get mouse angle
   socket.on('mouseAngle', function(angle){
     if( socket.id != null ){
-      if( abs(angle - Players[socket.id].dir) > MAX_ANGLE )
-        angle = Players[socket.id].dir + sign(angle - Players[socket.id].dir) * MAX_ANGLE;
+      if( min(abs(angle - Players[socket.id].dir), Math.PI * 2 - abs(angle - Players[socket.id].dir)) > MAX_ANGLE ){
+        if( minSign(abs(angle - Players[socket.id].dir), Math.PI * 2 - abs(angle - Players[socket.id].dir)) == -1 )
+          angle = Players[socket.id].dir + sign(angle - Players[socket.id].dir) * MAX_ANGLE;
+        else
+          angle = Players[socket.id].dir + sign(Players[socket.id].dir - angle) * MAX_ANGLE;
+      }
+      
+      angle = (angle + (Math.PI * 2)) % (Math.PI * 2);
+      
       Players[socket.id].dir = angle;
     }
   });
@@ -354,7 +382,7 @@ setInterval(function(){
     var oldx = Players[player].x;
     var oldy = Players[player].y;
     
-    if( angle > Math.PI / 2 ){
+    if( angle > Math.PI / 2 &&  angle < Math.PI + Math.PI / 2 ){
       Players[player].x += incx;
       Players[player].y += incy;
     }else{
@@ -374,7 +402,7 @@ setInterval(function(){
       incx = Math.sin(Bullets[bullet].dir) * Bullets[bullet].config.BULLET_SPEED;
       incy = Math.sqrt(Bullets[bullet].config.BULLET_SPEED * Bullets[bullet].config.BULLET_SPEED - incx * incx);
     
-      if( Bullets[bullet].dir > Math.PI / 2 ){
+      if( Bullets[bullet].dir > Math.PI / 2 && Bullets[bullet].dir < Math.PI + Math.PI / 2 ){
         Bullets[bullet].x += incx;
         Bullets[bullet].y += incy;
       }else{

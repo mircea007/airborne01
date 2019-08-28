@@ -110,6 +110,7 @@
           ID = data.id;
           form.style.display = "none";
           inGame = true;
+          draw();
         });
       
         socket.on('loginDenial', function(){});
@@ -359,6 +360,10 @@
           ctx.moveTo(c.width - 3 * PADDING - LEADERSCOREW, 2 * PADDING);
           ctx.lineTo(c.width - 3 * PADDING - LEADERSCOREW, PADDING + i * LEADERH);
           ctx.stroke();
+          
+          for( player in Players )
+            if( Players[player].dir < 0 || Players[player].dir > Math.PI * 2 )
+              console.log("asudbasundujasn");
           
           setTimeout(draw, 1000/FPS);
         }
