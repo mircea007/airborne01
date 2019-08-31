@@ -38,6 +38,19 @@
       .form button:hover {
         background-color: rgb(0, 255, 100);
       }
+      .credits {
+        padding: 8px 8px 8px 8px;
+        position: absolute;
+        top: 10px;
+        left: 10px;
+        z-index: 2;
+        margin: 0;
+        background-color: rgba(0, 0, 0, 0.5);
+        color: white;
+      }
+      .credits span {
+        color: #00ff10;
+      }
     </style>
   </head>
   <body>
@@ -244,8 +257,8 @@
             
           // draw frame and background
           ctx.beginPath();
-          ctx.strokeStyle = "white";
-          ctx.fillStyle = "rgba(0, 0, 0, 0.5)"
+          ctx.strokeStyle = "rgba(255, 255, 255, 1)";
+          ctx.fillStyle = "rgba(0, 0, 0, 0.7)"
           ctx.rect(c.width - MINIMAP_SIZE - 10, c.height - MINIMAP_SIZE - 10, MINIMAP_SIZE, MINIMAP_SIZE);
           ctx.stroke();
           ctx.fill();
@@ -372,5 +385,6 @@
       </script>
       <button onclick = "join();">Join</button>
     </div>
+    <h5 class = "credits">This site was made by <span>Rebengiuc Mircea</span></h5>
   </body>
  </html>
