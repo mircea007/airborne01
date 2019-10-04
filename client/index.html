@@ -123,7 +123,7 @@
           ID = data.id;
           form.style.display = "none";
           inGame = true;
-          draw();
+          setTimeout(draw, 100);
         });
       
         socket.on('loginDenial', function(){});
