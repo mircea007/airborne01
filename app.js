@@ -41,7 +41,7 @@ function abs( n ){
     return -n;
   else
     return n;
-}
+v}
 
 function sign( n ){
   if( n < 0 )
@@ -72,6 +72,8 @@ var planes = {
     BULLET_IMG_SRC: 'client/img/bullet.png',
     PLAYERWIDTH: 200,
     BULLETWIDTH: 10,
+    NBULLETS: 50,
+    RELOAD_TIME: 1000,
     REQUIRED_AUTOS: []
   },
   
@@ -87,6 +89,9 @@ var planes = {
     BULLET_IMG_SRC: 'client/img/laser_bullet.png',
     PLAYERWIDTH: 40,
     BULLETWIDTH: 30,
+    NBULLETS: 1000000,
+    RELOAD_TIME: 0,
+
     REQUIRED_AUTOS: [{Func: function(data){
       ID = data.ID;
       PARENT = data.PARENT;
@@ -153,15 +158,24 @@ var num_autos   = 0;
 var num_smoke   = 0;
 
 function shootBullet(ID){
-  Bullets[num_bullets] = {
-    shooter: ID,
-    dir: Players[ID].dir,
-    x: Players[ID].x,
-    y: Players[ID].y,
-    age: 0,
-    config: Players[ID].plane
-  };
-  num_bullets++;
+  if( Players[ID].remaining > 0 ){
+    Bullets[num_bullets] = {
+      shooter: ID,
+      dir: Players[ID].dir,
+      x: Players[ID].x,
+      y: Players[ID].y,
+      age: 0,
+      config: Players[ID].plane
+    };
+    num_bullets++;
+    Players[ID].remaining--;
+  }else if( Players[ID].can_regen == true ){
+    Players[ID].can_regen = false;
+    setTimeout(function(){
+      Players[ID].remaining = Players[ID].plane.NBULLETS;
+      Players[ID].can_regen = true;
+    }, Players[ID].plane.RELOAD_TIME);
+  }
 }
 
 function setDirection(ID, radians){
@@ -205,8 +219,11 @@ function createAuto(Func, Data){
     plane: Object.create(planes.normal),
     speed: planes.normal.SPEED,
     hidden: false,
+    remaining: planes.normal.NBULLETS,
+    can_regen: true,
     autos: []
   };
+  console.log(Players[num_players].remaining + '\n');
   Data.ID = num_players;
   num_players++;
   setPlane(Data.ID, planes.normal);
@@ -256,6 +273,8 @@ function deletePlayer(ID){
   }
 }
 
+console.log('ok');
+
 var io = require('socket.io')(serv,{});
 io.sockets.on('connection', function(socket){
   socket.id = null;
@@ -286,7 +305,9 @@ io.sockets.on('connection', function(socket){
         score: 0,
         plane: planes.normal,
         speed: planes.normal.SPEED,
-        hidden: false
+        hidden: false,
+        remaining: planes.normal.NBULLETS,
+        can_regen: true
       };
       num_players++;
       socket.id = num_players - 1;
