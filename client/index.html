@@ -79,6 +79,7 @@
         LEADERH = 30;
         PADDING = 10;
         SMOKE_SIZE = 10;
+        RELOAD_BAR_WIDTH = 400;
         
         var form = document.getElementsByClassName("form")[0];
         var c    = document.getElementById("c");
@@ -373,6 +374,19 @@
           ctx.moveTo(c.width - 3 * PADDING - LEADERSCOREW, 2 * PADDING);
           ctx.lineTo(c.width - 3 * PADDING - LEADERSCOREW, PADDING + i * LEADERH);
           ctx.stroke();
+
+          // reload bar
+          if( Players[ID] != null ){
+            ctx.fillStyle = "#0088ff";
+            ctx.font = "20px Verdana";
+            txt = Players[ID].remaining + ' / ' + Players[ID].plane.NBULLETS;
+            ctx.fillText(txt, (c.width - ctx.measureText(txt).width) / 2, c.height - 2 * PADDING - 5 - 20);
+
+            ctx.fillStyle = "rgb(0, 0, 0)";
+            ctx.fillRect((c.width - RELOAD_BAR_WIDTH) / 2, c.height - PADDING - 5, RELOAD_BAR_WIDTH, 5);
+            ctx.fillStyle = "#0088ff";
+            ctx.fillRect((c.width - RELOAD_BAR_WIDTH) / 2, c.height - PADDING - 5, Players[ID].remaining * RELOAD_BAR_WIDTH / Players[ID].plane.NBULLETS, 5);
+          }
           
           for( player in Players )
             if( Players[player].dir < 0 || Players[player].dir > Math.PI * 2 )
