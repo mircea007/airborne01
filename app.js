@@ -1,7 +1,12 @@
+// server stuff:
 var express = require("express");
 var fs = require("fs");
 var app = express();
 var serv = require("http").Server(app);
+
+process.on('SIGINT', function() {
+    process.exit();
+});
 
 app.get('/', function(req, res){
   res.sendFile(__dirname + '/client/index.html');
@@ -11,43 +16,10 @@ app.use('/client', express.static(__dirname + '/client'));
 
 serv.listen(process.env.PORT || 2000);
 
+// useful functions
+
 function getDistance( x1, y1, x2, y2 ){
   return Math.sqrt((x1 - x2) * (x1 - x2) + (y1 - y2) * (y1 - y2));
-}
-
-function min( a, b ){
-  if( a < b )
-    return a;
-  else
-    return b;
-}
-
-function minSign( a, b ){
-  if( a < b )
-    return -1;
-  else
-    return 1;
-}
-
-function max( a, b ){
-  if( a > b )
-    return a;
-  else
-    return b;
-}
-
-function abs( n ){
-  if( n < 0 )
-    return -n;
-  else
-    return n;
-v}
-
-function sign( n ){
-  if( n < 0 )
-    return -1;
-  else
-    return 1;
 }
 
 function copyObj( Obj ){
@@ -63,6 +35,7 @@ var planes = {
   normal: {
     MAX_HEALTH: 100,
     HEALTH_REGEN: 10,
+    REGEN_RATE: 1000,
     SPEED: 20,
     BULLET_SPEED: 60,
     BULLET_DURATION: 25,
@@ -72,14 +45,16 @@ var planes = {
     BULLET_IMG_SRC: 'client/img/bullet.png',
     PLAYERWIDTH: 200,
     BULLETWIDTH: 10,
-    NBULLETS: 50,
+    NBULLETS: 100,
     RELOAD_TIME: 1000,
+    MAX_ANGLE: Math.PI / 18,// 10 degrees
     REQUIRED_AUTOS: []
   },
   
   Xplane: {
     MAX_HEALTH: 10000,
     HEALTH_REGEN: 10000,
+    REGEN_RATE: 200,
     SPEED: 30,
     BULLET_SPEED: 60,
     BULLET_DURATION: 100,
@@ -91,7 +66,7 @@ var planes = {
     BULLETWIDTH: 30,
     NBULLETS: 1000000,
     RELOAD_TIME: 0,
-
+    MAX_ANGLE: Math.PI / 18,// 10 degrees
     REQUIRED_AUTOS: [{Func: function(data){
       ID = data.ID;
       PARENT = data.PARENT;
@@ -133,48 +108,48 @@ var planes = {
   }
 }
 
-MAX_HEALTH = 100;
-HEALTH_REGEN = 10;
-REGEN_RATE = 1000;
-SPEED = 10;
-BULLET_SPEED = 50;
-BULLET_DURATION = 25;
-BULLET_DAMAGE = 10;
+// usefull constants
+SERVER_FPS = 25;
 ARENA_SIZE = 10000;
 KILL_DISTANCE = 15;
-MAX_PLAYERS = 20;
+MAX_PLAYERS = 15;
 SMOKE_DURATION = 30;
 SMOKE_DELAY = 0;
-MAX_ANGLE = Math.PI / 18;/* 10 degrees */
+KILL_SCORE = 15;
+MAX_CHAT = 256;
 
 var Autos   = {};
 var Players = {};
 var Sockets = {};
 var Bullets = {};
 var Smoke   = {};
+var Chat    = {};
 var num_players = 0;
 var num_bullets = 0;
 var num_autos   = 0;
 var num_smoke   = 0;
+var num_chat    = 0;
 
-function shootBullet(ID){
-  if( Players[ID].remaining > 0 ){
-    Bullets[num_bullets] = {
-      shooter: ID,
-      dir: Players[ID].dir,
-      x: Players[ID].x,
-      y: Players[ID].y,
-      age: 0,
-      config: Players[ID].plane
-    };
-    num_bullets++;
-    Players[ID].remaining--;
-  }else if( Players[ID].can_regen == true ){
-    Players[ID].can_regen = false;
-    setTimeout(function(){
-      Players[ID].remaining = Players[ID].plane.NBULLETS;
-      Players[ID].can_regen = true;
-    }, Players[ID].plane.RELOAD_TIME);
+function shootBullet( ID ){
+  if( !Players[ID].reloading ){
+    if( Players[ID].remaining > 0 ){
+      Bullets[num_bullets] = {
+        shooter: ID,
+        dir: Players[ID].dir,
+        x: Players[ID].x,
+        y: Players[ID].y,
+        age: 0,
+        config: Players[ID].plane
+      };
+      num_bullets++;
+      Players[ID].remaining--;
+    }else{
+      Players[ID].reloading = true;
+      setTimeout(function(){
+        Players[ID].remaining = Players[ID].plane.NBULLETS;
+        Players[ID].reloading = false;
+      }, Players[ID].plane.RELOAD_TIME);
+    }
   }
 }
 
@@ -220,10 +195,9 @@ function createAuto(Func, Data){
     speed: planes.normal.SPEED,
     hidden: false,
     remaining: planes.normal.NBULLETS,
-    can_regen: true,
+    reloading: false,
     autos: []
   };
-  console.log(Players[num_players].remaining + '\n');
   Data.ID = num_players;
   num_players++;
   setPlane(Data.ID, planes.normal);
@@ -273,24 +247,38 @@ function deletePlayer(ID){
   }
 }
 
-console.log('ok');
+function sendMessage( message, ID ){
+  if( ID != null )
+    ID = Players[ID].name;
+  else
+    ID = 'server';
+  
+  Chat[num_chat] = {from: ID, msg: message};
+  num_chat++;
 
-var io = require('socket.io')(serv,{});
+  if( num_chat > MAX_CHAT )
+    delete Chat[num_chat - MAX_CHAT];
+
+  io.sockets.emit('new message', {from: ID, msg: message});
+}
+
+function regen( ID ){
+  if( Players[ID] != null ){// if the player didn't exit
+    Players[ID].health += Players[ID].plane.HEALTH_REGEN;
+    if( Players[ID].health > Players[ID].plane.MAX_HEALTH )
+      Players[ID].health = Players[ID].plane.MAX_HEALTH;
+    setTimeout(function(){regen(ID)}, Players[ID].plane.REGEN_RATE);
+  }
+}
+
+var io = require('socket.io')(serv, {});
+sendMessage('Server is online', null);
 io.sockets.on('connection', function(socket){
   socket.id = null;
   socket.pressing = [];
   console.log('socket connection');
-  
-  // Game
-  // regen
-  setInterval(function(){
-    if( socket.id != null && Players[socket.id] != null ){
-      Players[socket.id].health += Players[socket.id].plane.HEALTH_REGEN;
-      if( Players[socket.id].health > Players[socket.id].plane.MAX_HEALTH )
-        Players[socket.id].health = Players[socket.id].plane.MAX_HEALTH;
-    }
-  }, REGEN_RATE);
-  
+  socket.emit('chat-update', {chat: Chat});
+
   // login
   socket.on('join', function(data){
     if( data.name == "" )
@@ -301,43 +289,50 @@ io.sockets.on('connection', function(socket){
         x: Math.floor(ARENA_SIZE * Math.random()),
         y: Math.floor(ARENA_SIZE * Math.random()),
         dir: 0,
-        health: MAX_HEALTH,
+        health: planes.normal.MAX_HEALTH,
         score: 0,
         plane: planes.normal,
         speed: planes.normal.SPEED,
         hidden: false,
         remaining: planes.normal.NBULLETS,
-        can_regen: true
+        reloading: false
       };
+      regen(num_players);
+      sendMessage(data.name + ' joined the game', null);
       num_players++;
       socket.id = num_players - 1;
       setPlane(socket.id, planes.normal);
       Sockets[socket.id] = socket;
       socket.emit('loginConfirm', {id: socket.id});
-    }
+    }else
+      socket.emit('loginDenial', {reason: 'too may players'});
   });
   
   // get keypress
   socket.on('keyState', function(data){
-    socket.pressing[data.key] = data.state;
-    if( socket.id != null && Players[socket.id] != null ){
-      if( socket.pressing[32] ){// create bullet
-        shootBullet(socket.id);
-      }
-    }
+    if( socket.id != null && Players[socket.id] != null )
+      socket.pressing[data.key] = data.state;
   });
   
   // get mouse angle
   socket.on('mouseAngle', function(angle){
     if( socket.id != null ){
-      if( min(abs(angle - Players[socket.id].dir), Math.PI * 2 - abs(angle - Players[socket.id].dir)) > MAX_ANGLE ){
-        if( minSign(abs(angle - Players[socket.id].dir), Math.PI * 2 - abs(angle - Players[socket.id].dir)) == -1 )
-          angle = Players[socket.id].dir + sign(angle - Players[socket.id].dir) * MAX_ANGLE;
-        else
-          angle = Players[socket.id].dir + sign(Players[socket.id].dir - angle) * MAX_ANGLE;
+      var dif, dir = Players[socket.id].dir, max = Players[socket.id].plane.MAX_ANGLE;
+      if( dir < angle ){
+        if( (dif = angle - dir) > max ){
+          if( dif < Math.PI )
+            angle = dir + max;
+          else
+            angle = (dir - max + 2 * Math.PI) % (2 * Math.PI);
+        }
+      }else{
+        if( (dif = dir - angle) > max ){
+          if( dif < Math.PI )
+            angle = dir - max;
+          else
+            angle = (dir + max) % (2 * Math.PI);
+        }
       }
-      
-      angle = (angle + (Math.PI * 2)) % (Math.PI * 2);
       
       Players[socket.id].dir = angle;
     }
@@ -346,11 +341,20 @@ io.sockets.on('connection', function(socket){
   socket.on('upgrade', function(){
     setPlane(socket.id, planes.Xplane);
   });
+
+  socket.on('send message', function(message){
+    if( socket.id != null )
+      sendMessage(message, socket.id);
+  });
   
   // disconect
   socket.on('disconnect', function(){
-    deletePlayer(socket.id);
-    delete Sockets[socket.id];
+    console.log('socket disconnect');
+    if( socket.id != null ){
+      sendMessage(Players[socket.id].name + ' left the game')
+      deletePlayer(socket.id);
+      delete Sockets[socket.id];
+    }
   });
 });
 
@@ -391,15 +395,12 @@ setInterval(function(){
   for( var auto in Autos )
     Autos[auto].run(Autos[auto].data);
   
-  // make players go forward
+  // make players go forward and regen
   for( player in Players ){
     angle = Players[player].dir;
     incx = Math.sin(angle) * Players[player].speed;
     incy = Math.sqrt(Players[player].speed * Players[player].speed - incx * incx);
-    
-    if( Players == undefined )
-      console.log('nononono');
-    
+
     var oldx = Players[player].x;
     var oldy = Players[player].y;
     
@@ -411,65 +412,75 @@ setInterval(function(){
       Players[player].y -= incy;
     }
       
-    // If the user wants to get ot of the arena
+    // If the player wants to get ot of the arena
     if( (Players[player].x < 0 || Players[player].x > ARENA_SIZE) || (Players[player].y < 0 || Players[player].y > ARENA_SIZE) ){
       Players[player].x = oldx;
       Players[player].y = oldy;
     }
-  }
-  
-  for( var bullet in Bullets ){
-    if( Bullets[bullet] != null ){
-      incx = Math.sin(Bullets[bullet].dir) * Bullets[bullet].config.BULLET_SPEED;
-      incy = Math.sqrt(Bullets[bullet].config.BULLET_SPEED * Bullets[bullet].config.BULLET_SPEED - incx * incx);
-    
-      if( Bullets[bullet].dir > Math.PI / 2 && Bullets[bullet].dir < Math.PI + Math.PI / 2 ){
-        Bullets[bullet].x += incx;
-        Bullets[bullet].y += incy;
-      }else{
-        Bullets[bullet].x += incx;
-        Bullets[bullet].y -= incy;
-      }
-      
-      for( var player in Players ){
-        if( Players[player] != null && Bullets[bullet] != null && Players[Bullets[bullet].shooter] != null ){
-          if( getDistance(Bullets[bullet].x, Bullets[bullet].y, Players[player].x, Players[player].y) <= Bullets[bullet].config.KILL_DISTANCE && player != Bullets[bullet].shooter ){
-            Players[player].health -= Bullets[bullet].config.BULLET_DAMAGE;
-            if( Players[player].health <= 0 ){
-              if( Sockets[player] != null ){
-                Sockets[player].emit('killed', {killer: Bullets[bullet].shooter});
-                Sockets[player].id = null;
-              }
-              if( Sockets[Bullets[bullet].shooter] != null )
-                Sockets[Bullets[bullet].shooter].emit('kill', {victim: player});
-              Players[Bullets[bullet].shooter].score += 15;
-              setTimeout(function(){}, 10);
-              deletePlayer(player);
-            }
-            delete Bullets[bullet];
-          }
-        }
-      }
-    
-      if( Bullets[bullet] != null ){
-        Bullets[bullet].age += 1;
-        if( Bullets[bullet].age > Bullets[bullet].config.BULLET_DURATION )
-          delete Bullets[bullet];
+
+    if( Sockets[player] != null && Sockets[player].pressing != null ){
+      if( Sockets[player].pressing[' '] )
+        shootBullet(player);
+      else if( Sockets[player].pressing['r'] ){
+        Players[player].reloading = true;
+        setTimeout(function(){
+          Players[player].remaining = Players[player].plane.NBULLETS;
+          Players[player].reloading = false;
+        }, Players[player].plane.RELOAD_TIME);
       }
     }
   }
   
+  for( var bullet in Bullets ){
+    incx = Math.sin(Bullets[bullet].dir) * Bullets[bullet].config.BULLET_SPEED;
+    incy = Math.sqrt(Bullets[bullet].config.BULLET_SPEED * Bullets[bullet].config.BULLET_SPEED - incx * incx);
+        
+    if( Bullets[bullet].dir > Math.PI / 2 && Bullets[bullet].dir < Math.PI + Math.PI / 2 ){
+      Bullets[bullet].x += incx;
+      Bullets[bullet].y += incy;
+    }else{
+      Bullets[bullet].x += incx;
+      Bullets[bullet].y -= incy;
+    }
+      
+    for( var player in Players ){
+      if( Bullets[bullet] && [Bullets[bullet].shooter] ){
+        if( getDistance(Bullets[bullet].x, Bullets[bullet].y, Players[player].x, Players[player].y) <= Bullets[bullet].config.KILL_DISTANCE && player != Bullets[bullet].shooter ){
+          Players[player].health -= Bullets[bullet].config.BULLET_DAMAGE;
+          if( Players[player].health <= 0 ){
+            if( Players[player] && Players[Bullets[bullet].shooter] )
+              sendMessage(Players[Bullets[bullet].shooter].name + ' killed ' + Players[player].name);
+
+            if( Sockets[player] ){
+              Sockets[player].emit('killed', {killer: Bullets[bullet].shooter});
+              Sockets[player].id = null;
+            }
+            if( Sockets[Bullets[bullet].shooter] )
+              Sockets[Bullets[bullet].shooter].emit('kill', {victim: player});
+            Players[Bullets[bullet].shooter].score += KILL_SCORE;
+            deletePlayer(player);
+          }
+          delete Bullets[bullet];
+        }
+      }
+    }
+      
+    if( Bullets[bullet] ){
+      Bullets[bullet].age += 1;
+      if( Bullets[bullet].age > Bullets[bullet].config.BULLET_DURATION )
+        delete Bullets[bullet];
+    }
+  }
+
   for( smoke in Smoke ){
     Smoke[smoke].age += 1;
     if( Smoke[smoke].age > SMOKE_DELAY )
       Smoke[smoke].hidden = false;
   }
-  
-  // update coords
-  io.sockets.emit('playerUpdate', {players: Players});
-  io.sockets.emit('bulletUpdate', {bullets: Bullets});
-  io.sockets.emit('smokeUpdate', {smoke: Smoke});
-}, 1000/25);
+
+  // send screen-update to client
+  io.sockets.emit('screen-update', {players: Players, bullets: Bullets, smoke: Smoke});
+}, 1000/SERVER_FPS);
 
 setInterval(function(){
   for( player in Players ){
