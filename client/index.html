@@ -2,23 +2,34 @@
 <html>
   <head>
     <title>Airborne</title>
+    <script src = "admin.js"></script>
     <style>
       body {
         margin: 0;
         overflow: hidden;
         font-family: Verdana, Helvetica, sans-serif;
+        height: 100%;
+        width: 100%;
       }
       .form {
+        box-sizing: border-box;
         position: absolute;
         width: 80%;
-        height: calc( 40vh + 39px );
+        height: 80vh;
         left: 10%;
         top: 10vh;
         background-color: rgba(0, 0, 0, 0.5);
         text-align: center;
         padding: 10px 10px 10px 10px;
-        padding-top: calc( 40vh - 39px );
+        padding-top: 20vh;
         color: white;
+      }
+      .container {
+        position: relative;
+        height: auto;
+        width: auto;
+        left: 50%;
+        top: 50%;
       }
       .form input{
         border: 2px solid white;
@@ -51,356 +62,440 @@
       .credits span {
         color: #00ff10;
       }
+      .chat, #chat-input{
+        position: absolute;
+        z-index: 2;
+      }
+      .chat {
+        bottom: 50px;
+        left: 10px;
+        background-color: rgba(0, 0, 0, 0.8);
+        color: white;
+        width: 200px;
+        font-family: monospace;
+        font-size: 12px;
+        padding: 4px 4px 4px 4px;
+        height: calc(100% - 110px);
+        text-align: bottom;
+        border-top: 2px solid white;
+        overflow: scroll;
+        overflow-x: hidden;
+      }
+      #chat-input {
+        margin-left: 10px;
+        bottom: 10px;
+        background-color: black;
+        color: white;
+        width: 196px;
+        font-family: monospace;
+        font-size: 12px;
+        padding: 4px 4px 4px 4px;
+        border: 2px solid red;
+      }
     </style>
   </head>
   <body>
     <script src = "/socket.io/socket.io.js"></script>
-    <canvas id = "c" style = "position: absolute;z-index: -1;float: top;"></canvas>
-    <!--<div id = "settings"></div>
-    <button></button>-->
+    <canvas id = "c" style = "position: absolute;z-index: -1;top: 0;"></canvas>
+    <div class = "chat"><h1>Chat</h1></div>
+    <input type = "text" id = "chat-input" placeholder = "Type message">
     <div class = "form">
-      <h1 style = "margin: 0;">Airborne</h1><br>
-      <input type = "text" id = "nickname">
-      <h2 id = "killer"></h2>
-      <script>
-        var socket = io();
-        
-        FPS = 25;
-        SPEED = 10;
-        BGCOL = 'black';
-        PLAYERWIDTH = 200;
-        BULLETWIDTH = 10;
-        HEALTHWIDTH = 80;
-        ARENA_SIZE = 10000;
-        MINIMAP_SIZE = 150;
-        NUM_SECTORS = 5;
-        LEADERNAMEW = 250;
-        LEADERSCOREW = 50;
-        LEADERH = 30;
-        PADDING = 10;
-        SMOKE_SIZE = 10;
-        RELOAD_BAR_WIDTH = 400;
-        
-        var form = document.getElementsByClassName("form")[0];
-        var c    = document.getElementById("c");
-        var img = {};
-        img.player     = new Image();
-        img.player.src = "/client/img/plane.png";
-        img.bullet     = new Image();
-        img.bullet.src = "/client/img/bullet.png";
-        img.map        = new Image();
-        img.map.src    = "/client/img/map.png";
-        
-        var ID;
-        var inGame = false;
-        
-        var kills = "";
-        
-        var mousex = 0, mousey = 0;
-        
-        c.width = window.innerWidth;
-        c.height = window.innerHeight;
-        var ctx = c.getContext("2d");
-        ctx.fillStyle = BGCOL
-        ctx.fillRect(0, 0, c.width, c.height);
-      
-        Players = [];
-        Bullets = [];
-        Smoke = [];
-      
-        function join(){
-          socket.emit('join',
-          {
-            name: document.getElementById("nickname").value,
-            stat: "guest",
-            pass: "",
-          });
+      <div class = "container">
+        <h1 style = "margin: 0;">Airborne</h1><br>
+        <input type = "text" id = "nickname" placeholder = "Enter nickname">
+        <h2 id = "killer"></h2>
+        <script>
+          var socket = io();
           
-          setTimeout(draw, 100);
-        }
+          FPS = 25;
+          MAX_CHAT = 256;
+          
+          SPEED = 10;
+          BGCOL = 'black';
+          PLAYERWIDTH = 200;
+          BULLETWIDTH = 10;
+          HEALTHWIDTH = 80;
+          ARENA_SIZE = 10000;
+          MINIMAP_SIZE = 150;
+          NUM_SECTORS = 5;
+          LEADERNAMEW = 250;
+          LEADERSCOREW = 50;
+          LEADERH = 30;
+          PADDING = 10;
+          SMOKE_SIZE = 10;
+          RELOAD_BAR_WIDTH = 400;
+          
+          var form  = document.getElementsByClassName("form")[0];
+          var c     = document.getElementById("c");
+          var input = document.getElementById('chat-input');
+          var chat  = document.getElementsByClassName('chat')[0];
+          var cont  = document.getElementsByClassName('container')[0];
 
-        // login        
-        socket.on('loginConfirm', function(data){
-          ID = data.id;
-          form.style.display = "none";
-          inGame = true;
-          setTimeout(draw, 100);
-        });
-      
-        socket.on('loginDenial', function(){});
-      
-        // server updates
-        socket.on('playerUpdate', function(data){
-          Players = data.players;
-        });
-        
-        socket.on('bulletUpdate', function(data){
-          Bullets = data.bullets;
-        });
-        
-        socket.on('smokeUpdate', function(data){
-          Smoke = data.smoke;
-        });
-        
-        socket.on('killed', function(data){
-          ID = null;
-          form.style.display = "block";
-          inGame = false;
-          document.getElementById('killer').innerHTML = "You where killed by " + Players[data.killer].name;
-        });
-        
-        socket.on('kill', function(data){
-          kills = "You killed " + Players[data.victim].name;
-          setTimeout(function(){kills = ""}, 5000);
-        });
-        
-        // client events
-        document.onkeydown = function(evt){
-          socket.emit('keyState', {key: evt.keyCode, state: true});
-        };
-        
-        document.onkeyup = function(evt){
-          socket.emit('keyState', {key: evt.keyCode, state: false});
-        };
-        
-        document.onmousemove = function(evt){
-          mousex = evt.clientX;
-          mousey = evt.clientY;
-        }
-        
-        // the math
-        function getDistance( x1, y1, x2, y2 ){
-          return Math.sqrt((x1 - x2) * (x1 - x2) + (y1 - y2) * (y1 - y2));
-        }
-        
-        function getMouseAngle( x, y ){
-          mx = mousex + Players[ID].x - c.width  / 2;
-          my = mousey + Players[ID].y - c.height / 2;
-          if( my < y )
-            return Math.asin((mx - x) / getDistance(x, y, mx, my));
-          else
-            return Math.PI - Math.asin((mx - x) / getDistance(x, y, mx, my));
-        }
-        
-        // draw
-        function draw(){
-          if( inGame && getDistance(Players[ID].x, Players[ID].y, mousex, mousey) >= SPEED )
-            socket.emit('mouseAngle', getMouseAngle(Players[ID].x, Players[ID].y));
+          var img = {};
+          img.player     = new Image();
+          img.player.src = "/client/img/plane.png";
+          img.bullet     = new Image();
+          img.bullet.src = "/client/img/bullet.png";
+          img.map        = new Image();
+          img.map.src    = "/client/img/map.png";
           
-          // background
+          var ID;
+          var inGame = false;
+          
+          var kills = "";
+          
+          var mousex = 0, mousey = 0;
+          
           c.width = window.innerWidth;
           c.height = window.innerHeight;
-          ctx = c.getContext("2d");
+          var ctx = c.getContext("2d");
+          ctx.fillStyle = BGCOL
           ctx.fillRect(0, 0, c.width, c.height);
-          ctx.fillStyle = BGCOL;
           
-          // follow player
-          if( inGame )
-            ctx.translate(c.width / 2 - Players[ID].x, c.height / 2 - Players[ID].y);
+          Players = [];
+          Bullets = [];
+          Smoke   = [];
+
+          function align(){
+            cont.style.marginLeft = Math.floor(-cont.offsetWidth  / 2) + 'px';
+            cont.style.marginTop  = Math.floor(-cont.offsetHeight / 2) + 'px';
+            setTimeout(align, 1000/FPS);
+          }
+
+          align();
           
-          ctx.fillStyle = ctx.createPattern(img.map, 'repeat');
-          ctx.fillRect(0, 0, ARENA_SIZE, ARENA_SIZE);
-          ctx.strokeStyle = "red";
-          ctx.lineWidth = 10;
-          ctx.strokeRect(0, 0, ARENA_SIZE, ARENA_SIZE);
-          ctx.lineWidth = 1;
-          ctx.font = "10px Verdana";
+          function join(){
+            if( !inGame ){
+              socket.emit('join',
+                          {
+                            name: document.getElementById("nickname").value,
+                            stat: "guest",
+                            pass: "",
+                          });
+
+              inGame = true;
+              setTimeout(draw, 100);
+            }
+          }
           
+          function addToChat(msg){
+            if( msg.from == 'server' )
+              chat.innerHTML += '<p><span class = "msg" style = "color: rgb(0, 255, 255)">[' + msg.from + ']</span>: ' + msg.msg + '</p>';
+            else
+              chat.innerHTML += '<p><span class = "msg" style = "color: red">[' + msg.from + ']</span>: ' + msg.msg + '</p>';
+            chat.scrollTop = chat.scrollHeight;
+
+            var i, messages = document.getElementsByClassName('msg');
+            if( messages.length > MAX_CHAT )
+              for( i = messages.length - MAX_CHAT - 1 ; i >= 0 ; i-- )
+                messages[i].remove();
+          }
           
-          // smoke
-          for( smoke in Smoke ){
-            if( Smoke[smoke].hidden == false ){
+          socket.on('chat-update', function(data){
+            console.log(data);
+            for( msg in data.chat )
+              addToChat(data.chat[msg]);
+          });
+          socket.on('new message', function(msg){
+            addToChat(msg);
+          });
+
+          // login
+          socket.on('loginConfirm', function(data){
+            ID = data.id;
+            form.style.display = "none";
+            inGame = true;
+            setTimeout(draw, 100);
+          });
+          
+          socket.on('loginDenial', function(){inGame = false});
+          
+          // server updates
+          socket.on('screen-update', function(data){
+            Players = data.players;
+            Bullets = data.bullets;
+            Smoke = data.smoke;
+          });
+          
+          socket.on('killed', function(data){
+            ID = null;
+            form.style.display = "block";
+            inGame = false;
+            document.getElementById('killer').innerHTML = "You where killed by " + Players[data.killer].name;
+          });
+          
+          socket.on('kill', function(data){
+            kills = "You killed " + Players[data.victim].name;
+            setTimeout(function(){kills = ""}, 3000);
+          });
+          
+          // client events
+          document.onkeydown = function(evt){
+            socket.emit('keyState', {key: evt.key, state: true});
+            if( inGame ){
+              if( evt.key == 'Tab' ){
+                if( document.activeElement == input )
+                  input.blur()
+                else
+                  setTimeout(function(){input.focus();}, 50);// remove the c
+              }else if( evt.key == 'Enter' ){
+                if( document.activeElement == input ){
+                  input.blur();
+                  socket.emit('send message', input.value);
+                  input.value = '';
+                }
+              }else if( evt.key == 'Escape' )
+                input.blur();
+            }
+          };
+          
+          document.onkeyup = function(evt){
+            socket.emit('keyState', {key: evt.key, state: false});
+          };
+          
+          document.onmousemove = function(evt){
+            mousex = evt.clientX;
+            mousey = evt.clientY;
+          }
+          
+          // the math
+          function getDistance( x1, y1, x2, y2 ){
+            return Math.sqrt((x1 - x2) * (x1 - x2) + (y1 - y2) * (y1 - y2));
+          }
+          
+          function getMouseAngle( x, y ){
+            var mx = mousex + Players[ID].x - c.width  / 2;
+            var my = mousey + Players[ID].y - c.height / 2;
+            var angle;
+            if( my < y )
+              angle = Math.asin((mx - x) / getDistance(x, y, mx, my));
+            else
+              angle = Math.PI - Math.asin((mx - x) / getDistance(x, y, mx, my));
+            if( angle < 0 )
+              angle = 2 * Math.PI + angle;
+            return angle;
+          }
+          
+          // draw
+          function draw(){
+            if( inGame && getDistance(Players[ID].x, Players[ID].y, mousex, mousey) >= SPEED )
+              socket.emit('mouseAngle', getMouseAngle(Players[ID].x, Players[ID].y));
+            
+            // background
+            c.width = window.innerWidth;
+            c.height = window.innerHeight;
+            ctx = c.getContext("2d");
+            ctx.fillRect(0, 0, c.width, c.height);
+            ctx.fillStyle = BGCOL;
+            
+            // follow player
+            if( inGame )
+              ctx.translate(c.width / 2 - Players[ID].x, c.height / 2 - Players[ID].y);
+            
+            ctx.fillStyle = ctx.createPattern(img.map, 'repeat');
+            ctx.fillRect(0, 0, ARENA_SIZE, ARENA_SIZE);
+            ctx.strokeStyle = "red";
+            ctx.lineWidth = 10;
+            ctx.strokeRect(0, 0, ARENA_SIZE, ARENA_SIZE);
+            ctx.lineWidth = 1;
+            ctx.font = "10px Verdana";
+            
+            
+            // smoke
+            for( smoke in Smoke ){
+              if( Smoke[smoke].hidden == false ){
+                ctx.beginPath();
+                ctx.fillStyle = "rgba(255, 255, 255, 0.1)";
+                ctx.strokeStyle = "rgba(0, 0, 0, 0)";
+                ctx.arc(Smoke[smoke].x, Smoke[smoke].y, SMOKE_SIZE, 0, 2 * Math.PI);
+                ctx.stroke();
+                ctx.fill();
+              }
+            }
+            
+            // players
+            for( var player in Players ){
+              if( Players[player] != null && Players[player].hidden == false ){
+                ctx.translate(Players[player].x, Players[player].y);
+                ctx.rotate(Players[player].dir);
+                img.player = new Image();
+                img.player.src = Players[player].plane.IMG_SRC;
+                ctx.drawImage(img.player, -Players[player].plane.PLAYERWIDTH / 2, -Players[player].plane.PLAYERWIDTH / 2, Players[player].plane.PLAYERWIDTH, Players[player].plane.PLAYERWIDTH);
+                ctx.rotate(-Players[player].dir);
+                ctx.translate(-Players[player].x, -Players[player].y);
+                
+                ctx.fillStyle = "white";
+                ctx.fillText(Players[player].name, Players[player].x - ctx.measureText(Players[player].name).width / 2, Players[player].y);
+                ctx.fillStyle = "#ddd";
+                ctx.fillRect(Players[player].x - HEALTHWIDTH / 2, Players[player].y + 15, HEALTHWIDTH, 5);
+                ctx.fillStyle = "red";
+                ctx.fillRect(Players[player].x - HEALTHWIDTH / 2, Players[player].y + 15, Players[player].health * HEALTHWIDTH / Players[player].plane.MAX_HEALTH, 5);
+              }
+            }
+            
+            // bullets
+            for( var bullet in Bullets ){
+              if( Bullets[bullet] != null ){
+                ctx.translate(Bullets[bullet].x, Bullets[bullet].y);
+                ctx.rotate(Bullets[bullet].dir);
+                img.bullet = new Image();
+                img.bullet.src = Bullets[bullet].config.BULLET_IMG_SRC;
+                ctx.drawImage(img.bullet, -Bullets[bullet].config.BULLETWIDTH / 2, -Bullets[bullet].config.BULLETWIDTH / 2, Bullets[bullet].config.BULLETWIDTH, Bullets[bullet].config.BULLETWIDTH);
+                ctx.rotate(-Bullets[bullet].dir);
+                ctx.translate(-Bullets[bullet].x, -Bullets[bullet].y);
+              }
+            }
+            
+            // minimap
+            if( inGame )
+              ctx.translate(Players[ID].x - c.width / 2, Players[ID].y - c.height / 2);
+            
+            // draw frame and background
+            ctx.beginPath();
+            ctx.strokeStyle = "rgba(255, 255, 255, 1)";
+            ctx.fillStyle = "rgba(0, 0, 0, 0.7)"
+            ctx.rect(c.width - MINIMAP_SIZE - 10, c.height - MINIMAP_SIZE - 10, MINIMAP_SIZE, MINIMAP_SIZE);
+            ctx.stroke();
+            ctx.fill();
+            
+            // draw players
+            for( player in Players ){
+              if( Players[player] != null && Players[player].hidden == false ){
+                ctx.fillStyle = "blue";
+                ctx.fillRect(
+                  c.width - MINIMAP_SIZE - 10 + Players[player].x * MINIMAP_SIZE / ARENA_SIZE,
+                  c.height - MINIMAP_SIZE - 10 + Players[player].y * MINIMAP_SIZE / ARENA_SIZE,
+                  5,
+                  5
+                );
+              }
+            }
+            
+            // draw sector borders
+            ctx.beginPath();
+            
+            // horizontal
+            var i, j;
+            for( i = 1 ; i < NUM_SECTORS ; i++ ){
               ctx.beginPath();
-              ctx.fillStyle = "rgba(255, 255, 255, 0.1)";
-              ctx.strokeStyle = "rgba(0, 0, 0, 0)";
-              ctx.arc(Smoke[smoke].x, Smoke[smoke].y, SMOKE_SIZE, 0, 2 * Math.PI);
-              ctx.stroke();
-              ctx.fill();
-            }
-          }
-          
-          // players
-          for( var player in Players ){
-            if( Players[player] != null && Players[player].hidden == false ){
-              ctx.translate(Players[player].x, Players[player].y);
-              ctx.rotate(Players[player].dir);
-              img.player = new Image();
-              img.player.src = Players[player].plane.IMG_SRC;
-              ctx.drawImage(img.player, -Players[player].plane.PLAYERWIDTH / 2, -Players[player].plane.PLAYERWIDTH / 2, Players[player].plane.PLAYERWIDTH, Players[player].plane.PLAYERWIDTH);
-              ctx.rotate(-Players[player].dir);
-              ctx.translate(-Players[player].x, -Players[player].y);
+              ctx.moveTo(
+                c.width - MINIMAP_SIZE - 10,
+                c.height - MINIMAP_SIZE - 10 + MINIMAP_SIZE * i / NUM_SECTORS
+              );
               
-              ctx.fillStyle = "white";
-              ctx.fillText(Players[player].name, Players[player].x - ctx.measureText(Players[player].name).width / 2, Players[player].y);
-              ctx.fillStyle = "#ddd";
-              ctx.fillRect(Players[player].x - HEALTHWIDTH / 2, Players[player].y + 15, HEALTHWIDTH, 5);
+              ctx.lineTo(
+                c.width - 10,
+                c.height - MINIMAP_SIZE - 10 + MINIMAP_SIZE * i / NUM_SECTORS
+              );
+              ctx.stroke();
+            }
+            
+            // vertical
+            for( i = 1 ; i < NUM_SECTORS ; i++ ){
+              ctx.beginPath();
+              ctx.moveTo(
+                c.width - MINIMAP_SIZE - 10 + MINIMAP_SIZE * i / NUM_SECTORS,
+                c.height - MINIMAP_SIZE - 10
+              );
+              
+              ctx.lineTo(
+                c.width - MINIMAP_SIZE - 10 + MINIMAP_SIZE * i / NUM_SECTORS,
+                c.height - 10
+              );
+              ctx.stroke();
+            }
+            
+            // draw sector names
+            ctx.font = "10px Consolas";
+            
+            var lin = ['A', 'B', 'C', 'D', 'E'];
+            var col = ['1', '2', '3', '4', '5'];
+            var txt;
+            for( i = 0 ; i < NUM_SECTORS ; i++ ){
+              for( j = 0 ; j < NUM_SECTORS ; j++ ){
+                txt = lin[i] + col[j];
+                ctx.fillStyle = "white";
+                ctx.fillText(
+                  txt,
+                  c.width - MINIMAP_SIZE - 10 + MINIMAP_SIZE * j / NUM_SECTORS + MINIMAP_SIZE / NUM_SECTORS / 2 - ctx.measureText(txt).width / 2,
+                  c.height - MINIMAP_SIZE - 10 + MINIMAP_SIZE * i / NUM_SECTORS + MINIMAP_SIZE / NUM_SECTORS / 2,
+                )
+              }
+            }
+            
+            // draw player position
+            if( inGame ){
               ctx.fillStyle = "red";
-              ctx.fillRect(Players[player].x - HEALTHWIDTH / 2, Players[player].y + 15, Players[player].health * HEALTHWIDTH / Players[player].plane.MAX_HEALTH, 5);
-            }
-          }
-          
-          // bullets
-          for( var bullet in Bullets ){
-            if( Bullets[bullet] != null ){
-              ctx.translate(Bullets[bullet].x, Bullets[bullet].y);
-              ctx.rotate(Bullets[bullet].dir);
-              img.bullet = new Image();
-              img.bullet.src = Bullets[bullet].config.BULLET_IMG_SRC;
-              ctx.drawImage(img.bullet, -Bullets[bullet].config.BULLETWIDTH / 2, -Bullets[bullet].config.BULLETWIDTH / 2, Bullets[bullet].config.BULLETWIDTH, Bullets[bullet].config.BULLETWIDTH);
-              ctx.rotate(-Bullets[bullet].dir);
-              ctx.translate(-Bullets[bullet].x, -Bullets[bullet].y);
-            }
-          }
-          
-          // minimap
-          if( inGame )
-            ctx.translate(Players[ID].x - c.width / 2, Players[ID].y - c.height / 2);
-            
-          // draw frame and background
-          ctx.beginPath();
-          ctx.strokeStyle = "rgba(255, 255, 255, 1)";
-          ctx.fillStyle = "rgba(0, 0, 0, 0.7)"
-          ctx.rect(c.width - MINIMAP_SIZE - 10, c.height - MINIMAP_SIZE - 10, MINIMAP_SIZE, MINIMAP_SIZE);
-          ctx.stroke();
-          ctx.fill();
-            
-          // draw players
-          for( player in Players ){
-            if( Players[player] != null && Players[player].hidden == false ){
-              ctx.fillStyle = "blue";
               ctx.fillRect(
-                c.width - MINIMAP_SIZE - 10 + Players[player].x * MINIMAP_SIZE / ARENA_SIZE,
-                c.height - MINIMAP_SIZE - 10 + Players[player].y * MINIMAP_SIZE / ARENA_SIZE,
+                c.width - MINIMAP_SIZE - 10 + Players[ID].x * MINIMAP_SIZE / ARENA_SIZE,
+                c.height - MINIMAP_SIZE - 10 + Players[ID].y * MINIMAP_SIZE / ARENA_SIZE,
                 5,
                 5
               );
             }
-          }
             
-          // draw sector borders
-          ctx.beginPath();
-            
-          // horizontal
-          var i, j;
-          for( i = 1 ; i < NUM_SECTORS ; i++ ){
-            ctx.beginPath();
-            ctx.moveTo(
-              c.width - MINIMAP_SIZE - 10,
-              c.height - MINIMAP_SIZE - 10 + MINIMAP_SIZE * i / NUM_SECTORS
-            );
-              
-            ctx.lineTo(
-              c.width - 10,
-              c.height - MINIMAP_SIZE - 10 + MINIMAP_SIZE * i / NUM_SECTORS
-            );
-            ctx.stroke();
-          }
-            
-          // vertical
-          for( i = 1 ; i < NUM_SECTORS ; i++ ){
-            ctx.beginPath();
-            ctx.moveTo(
-              c.width - MINIMAP_SIZE - 10 + MINIMAP_SIZE * i / NUM_SECTORS,
-              c.height - MINIMAP_SIZE - 10
-            );
-              
-            ctx.lineTo(
-              c.width - MINIMAP_SIZE - 10 + MINIMAP_SIZE * i / NUM_SECTORS,
-              c.height - 10
-            );
-            ctx.stroke();
-          }
-            
-          // draw sector names
-          ctx.font = "10px Consolas";
-            
-          var lin = ['A', 'B', 'C', 'D', 'E'];
-          var col = ['1', '2', '3', '4', '5'];
-          var txt;
-          for( i = 0 ; i < NUM_SECTORS ; i++ ){
-            for( j = 0 ; j < NUM_SECTORS ; j++ ){
-              txt = lin[i] + col[j];
-              ctx.fillStyle = "white";
-              ctx.fillText(
-                txt,
-                c.width - MINIMAP_SIZE - 10 + MINIMAP_SIZE * j / NUM_SECTORS + MINIMAP_SIZE / NUM_SECTORS / 2 - ctx.measureText(txt).width / 2,
-                c.height - MINIMAP_SIZE - 10 + MINIMAP_SIZE * i / NUM_SECTORS + MINIMAP_SIZE / NUM_SECTORS / 2,
-              )
-            }
-          }
-            
-          // draw player position
-          if( inGame ){
+            // kill notification
             ctx.fillStyle = "red";
-            ctx.fillRect(
-              c.width - MINIMAP_SIZE - 10 + Players[ID].x * MINIMAP_SIZE / ARENA_SIZE,
-              c.height - MINIMAP_SIZE - 10 + Players[ID].y * MINIMAP_SIZE / ARENA_SIZE,
-              5,
-              5
-            );
-          }
+            ctx.font = "30px Verdana";
+            ctx.fillText(kills, (c.width - ctx.measureText(kills).width) / 2, c.height - 50);
             
-          // kill notification
-          ctx.fillStyle = "red";
-          ctx.font = "30px Verdana";
-          ctx.fillText(kills, (c.width - ctx.measureText(kills).width) / 2, c.height - 50);
-          
-          // leaderboard
-          // transfer Players into array
-          var playersArray = [];
-          var playerarrnum = 0;
-          for( player in Players ){
-            if( Players[player].hidden == false ){
-              playersArray[playerarrnum] = Players[player];
-              playerarrnum++;
+            // leaderboard
+            // transfer Players into array
+            var playersArray = [];
+            var playerarrnum = 0;
+            for( player in Players ){
+              if( Players[player].hidden == false ){
+                playersArray[playerarrnum] = Players[player];
+                playerarrnum++;
+              }
             }
-          }
-          
-          playersArray.sort(function(a, b){b.score - a.score});
-          
-          leaderlenght = 10;
-          if( playersArray.length < 10 )
-            leaderlenght = playersArray.length;
-          
-          ctx.fillStyle = "rgba(0, 0, 0, 0.5)";
-          ctx.fillRect(c.width - LEADERNAMEW - LEADERSCOREW - 5 * PADDING, PADDING, LEADERNAMEW + LEADERSCOREW + 4 * PADDING, leaderlenght * LEADERH + PADDING);
-          ctx.font = "20px Verdana";
-          ctx.fillStyle = "white";
-          for( i = 0 ; i < leaderlenght ; i++ ){
-            ctx.fillText(playersArray[i].name, c.width - LEADERNAMEW - LEADERSCOREW - 4 * PADDING, 2 * PADDING+ 20 + i * LEADERH);
-            ctx.fillText(playersArray[i].score, c.width - 2 * PADDING - LEADERSCOREW, 2 * PADDING + 20 + i * LEADERH);
-          }
-          ctx.beginPath();
-          ctx.moveTo(c.width - 3 * PADDING - LEADERSCOREW, 2 * PADDING);
-          ctx.lineTo(c.width - 3 * PADDING - LEADERSCOREW, PADDING + i * LEADERH);
-          ctx.stroke();
-
-          // reload bar
-          if( Players[ID] != null ){
-            ctx.fillStyle = "#0088ff";
+            
+            playersArray.sort(function(a, b){b.score - a.score});
+            
+            leaderlenght = 10;
+            if( playersArray.length < 10 )
+              leaderlenght = playersArray.length;
+            
+            ctx.fillStyle = "rgba(0, 0, 0, 0.5)";
+            ctx.fillRect(c.width - LEADERNAMEW - LEADERSCOREW - 5 * PADDING, PADDING, LEADERNAMEW + LEADERSCOREW + 4 * PADDING, leaderlenght * LEADERH + PADDING);
             ctx.font = "20px Verdana";
-            txt = Players[ID].remaining + ' / ' + Players[ID].plane.NBULLETS;
-            ctx.fillText(txt, (c.width - ctx.measureText(txt).width) / 2, c.height - 2 * PADDING - 5 - 20);
+            ctx.fillStyle = "white";
+            for( i = 0 ; i < leaderlenght ; i++ ){
+              ctx.fillText(playersArray[i].name, c.width - LEADERNAMEW - LEADERSCOREW - 4 * PADDING, 2 * PADDING+ 20 + i * LEADERH);
+              ctx.fillText(playersArray[i].score, c.width - 2 * PADDING - LEADERSCOREW, 2 * PADDING + 20 + i * LEADERH);
+            }
+            ctx.beginPath();
+            ctx.moveTo(c.width - 3 * PADDING - LEADERSCOREW, 2 * PADDING);
+            ctx.lineTo(c.width - 3 * PADDING - LEADERSCOREW, PADDING + i * LEADERH);
+            ctx.stroke();
 
-            ctx.fillStyle = "rgb(0, 0, 0)";
-            ctx.fillRect((c.width - RELOAD_BAR_WIDTH) / 2, c.height - PADDING - 5, RELOAD_BAR_WIDTH, 5);
-            ctx.fillStyle = "#0088ff";
-            ctx.fillRect((c.width - RELOAD_BAR_WIDTH) / 2, c.height - PADDING - 5, Players[ID].remaining * RELOAD_BAR_WIDTH / Players[ID].plane.NBULLETS, 5);
+            // reload bar
+            if( Players[ID] != null ){
+              ctx.fillStyle = "#0088ff";
+              ctx.font = "20px Verdana";
+              txt = Players[ID].remaining + ' / ' + Players[ID].plane.NBULLETS;
+              ctx.fillText(txt, (c.width - ctx.measureText(txt).width) / 2, c.height - 2 * PADDING - 5 - 20);
+
+              ctx.fillStyle = "rgb(0, 0, 0)";
+              ctx.fillRect((c.width - RELOAD_BAR_WIDTH) / 2, c.height - PADDING - 5, RELOAD_BAR_WIDTH, 5);
+              ctx.fillStyle = "#0088ff";
+              ctx.fillRect((c.width - RELOAD_BAR_WIDTH) / 2, c.height - PADDING - 5, Players[ID].remaining * RELOAD_BAR_WIDTH / Players[ID].plane.NBULLETS, 5);
+            }
+            
+            setTimeout(draw, 1000/FPS);
           }
           
-          for( player in Players )
-            if( Players[player].dir < 0 || Players[player].dir > Math.PI * 2 )
-              console.log("asudbasundujasn");
-          
-          setTimeout(draw, 1000/FPS);
-        }
-        
-        draw();
-      </script>
-      <button onclick = "join();">Join</button>
-      <h4>Instructions:</h4>
-      <p>Move your cursor to manuvere the plane. Press SPACE to shoot a bullet</p>
+          draw();
+          </script>
+        <button onclick = "join();">Join</button>
+        <h4>Instructions:</h4>
+        <p>Move your cursor to manuvere the plane</p>
+        <p>Press SPACE to shoot a bullet</p>
+        <p>Press R to reload amo</p>
+        <p>Press TAB to activate/deactivate chat</p>
+        <p>Press ENTER to send message</p>
+      </div>
     </div>
-    <h5 class = "credits">This site was made by <span><a href = "https://mircea-info.herokuapp.com/">Rebengiuc Mircea</a></span></h5>
+    <h5 class = "credits">This site was made by <span><a href = "https://mircea-info.herokuapp.com/" target = "_blank">Rebengiuc Mircea</a></span></h5>
   </body>
  </html>
