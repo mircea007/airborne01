@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Airborne documentation</title>
+    <style>
+      pre {
+        font-family: Verdana;
+        font-size: 20px;
+      }
+
+      h1, h2 { margin: 0; }
+
+      td, tr, th, table {
+        border: 2px solid black;
+        border-collapse: collapse;
+      }
+
+      td, th { padding: 8px }
+      th { background-color: #ddd; }
+      img {
+        width: calc(100% - 40px);/* two images */
+        margin-left: 20px;
+      }
+    </style>
+  </head>
+  <body><pre>
+<h1 align = "center">Airborne documentation</h1>
+
+<h2>General description</h2>
+Link to game <a href = "http://airborne01.herokuapp.com" target = "_blank">here</a>.
+
+    Airborne is a multiplayer game in which you fly plane and your goal is to shoot down as many enemies.
+Each plane down gives you 15 points. When you are killed you lose all your points.
+
+<h2>Framework</h2>
+    The server is made using Node.js with static files served by express and server-to-client comunication handled
+by socket.io. The executables in the private game hosting section are compiled with the help of nexe. The server
+is hosted by <a href = "https://heroku.com/" target = "_blank">Heroku</a> whitch is onw of the only free Node.js hosting platforms.
+    The web page is made using direct HTML coding (no intermediary such as wikilang). Graphics are made using the
+HTML canvas, controled by JavaScript.
+    The server handles events at 25fps and the airborne web page renders at the same speed. It is't yet implemented
+in the user interface but the framerate can be changed from your browser's JavaScript console like below.
+
+<code>&gt; FPS = 15;</code>
+
+<h2>Controls</h2>
+<table>
+<tr><th>Key</th><th>Action</th></tr>
+<tr><td>Space</td><td>shoots a bullet</td></tr>
+<tr><td>R</td><td>reloads amunition</td></tr>
+<tr><td>Tab</td><td>toggles chat</td></tr>
+<tr><td>Enter</td><td>Sends chat message</td></tr>
+</table>
+
+<h2>Interface</h2>
+<table>
+<tr><th>Utility</th><th>Location</th><th>Purpose</th></tr>
+<tr><td>Leaderboard</td><td>top-right</td><td>shows top 10 players</td></tr>
+<tr><td>Minimap</td><td>lower-right</td><td>shows all player's locations in the arena</td></tr>
+<tr><td>Chat</td><td>left</td><td>for sending and viewing messages</td></tr>
+</table>
+
+All these (and the credits linking to my website) can be toggled in the settings section in the top-left
+
+<h2>Private game hosting</h2>
+  - You can download a executable whitch, when run, makes your computer a full airborne server
+  - It will print on the screen the ip's whitch you will need to send your friends for them to join
+  - The program will print events such as a device connecting or deconnecting from the server
+  - You will also need to download a zip file containning the dependencies for the program (such as images, webpages etc.)
+
+<h2>Restrictions</h2>
+  - Doesn't work on mobile
+  - It can lag when many players join
+
+<h2>Vulnerabilities</h2>
+  - messages aren't yet protected against cross-site scripting atacks. Try typing <code>&lt;b&gt;XSS&lt;/b&gt;</code>
+  - Going into the arena border at the same time you exit the game may crash the server, which has to be manualy redeployed.
+
+<h2>Screenshots</h2>
+main page:
+<img src = "airborne-main.png"><br>
+mid-air:
+<img src = "airborne-inflight.png">
+
+    </pre>
+  </body>
+</html>
