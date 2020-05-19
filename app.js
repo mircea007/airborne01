@@ -8,10 +8,7 @@ process.on('SIGINT', function() {
     process.exit();
 });
 
-app.get('/', function(req, res){
-  res.sendFile(__dirname + '/client/index.html');
-});
-
+app.use('', express.static(__dirname + '/client'));
 app.use('/client', express.static(__dirname + '/client'));
 
 serv.listen(process.env.PORT || 2000);
@@ -34,13 +31,13 @@ function copyObj( Obj ){
 var planes = {
   normal: {
     MAX_HEALTH: 100,
-    HEALTH_REGEN: 10,
+    HEALTH_REGEN: 2,
     REGEN_RATE: 1000,
     SPEED: 20,
     BULLET_SPEED: 60,
     BULLET_DURATION: 25,
     BULLET_DAMAGE: 10,
-    KILL_DISTANCE: 15,
+    KILL_DISTANCE: 30,
     IMG_SRC: 'client/img/plane.png',
     BULLET_IMG_SRC: 'client/img/bullet.png',
     PLAYERWIDTH: 200,
@@ -111,24 +108,20 @@ var planes = {
 // usefull constants
 SERVER_FPS = 25;
 ARENA_SIZE = 10000;
-KILL_DISTANCE = 15;
 MAX_PLAYERS = 15;
-SMOKE_DURATION = 30;
+SMOKE_DURATION = 60;
 SMOKE_DELAY = 0;
 KILL_SCORE = 15;
-MAX_CHAT = 256;
 
 var Autos   = {};
 var Players = {};
 var Sockets = {};
 var Bullets = {};
 var Smoke   = {};
-var Chat    = {};
 var num_players = 0;
 var num_bullets = 0;
 var num_autos   = 0;
 var num_smoke   = 0;
-var num_chat    = 0;
 
 function shootBullet( ID ){
   if( !Players[ID].reloading ){
@@ -253,12 +246,6 @@ function sendMessage( message, ID ){
   else
     ID = 'server';
   
-  Chat[num_chat] = {from: ID, msg: message};
-  num_chat++;
-
-  if( num_chat > MAX_CHAT )
-    delete Chat[num_chat - MAX_CHAT];
-
   io.sockets.emit('new message', {from: ID, msg: message});
 }
 
@@ -272,12 +259,10 @@ function regen( ID ){
 }
 
 var io = require('socket.io')(serv, {});
-sendMessage('Server is online', null);
 io.sockets.on('connection', function(socket){
   socket.id = null;
   socket.pressing = [];
   console.log('socket connection');
-  socket.emit('chat-update', {chat: Chat});
 
   // login
   socket.on('join', function(data){
@@ -476,6 +461,9 @@ setInterval(function(){
     Smoke[smoke].age += 1;
     if( Smoke[smoke].age > SMOKE_DELAY )
       Smoke[smoke].hidden = false;
+
+    Smoke[smoke].x += Smoke[smoke].dx;
+    Smoke[smoke].y += Smoke[smoke].dy;
   }
 
   // send screen-update to client
@@ -487,6 +475,8 @@ setInterval(function(){
     Smoke[num_smoke] = {
       x: Players[player].x,
       y: Players[player].y,
+      dx: Math.random() - 0.5,
+      dy: Math.random() - 0.5,
       hidden: true,
       age: 0
     };
@@ -498,3 +488,15 @@ setInterval(function(){
       delete Smoke[smoke];
   }
 }, 1000/50);
+
+// print ip's for user
+
+var ip = require("ip");
+var local_ip = ip.address();
+var extip = require('external-ip')();
+
+console.log("Server is online")
+console.log("To close server press Ctrl-C\n")
+console.log("You can access the game at http://localhost:2000/")
+console.log("Players on your network can access game at http://" + local_ip + ":2000/")
+extip(function( err, ip ){ console.log("Players outside your network can access game at http://" + ip + ":2000/"); });

@@ -1,10 +1,17 @@
 {
-  "name": "video-game",
+  "name": "airborne",
   "version": "1.0.0",
   "description": "",
   "main": "app.js",
   "scripts": {
-    "start": "node app.js"
+    "start": "node app.js",
+    "build": "nexe app.js -r \"./client/**/*\"",
+    "build-win-64":   "nexe app.js --target windows-x64 -o win64.exe",
+    "build-macos-64": "nexe app.js --target macos-x64   -o macos64",
+    "build-linux-64": "nexe app.js --target linux-x64   -o linux64",
+    "build-win-32":   "nexe app.js --target windows-x32 -o win32.exe",
+    "build-macos-32": "nexe app.js --target macos-x32   -o macos32",
+    "build-linux-32": "nexe app.js --target linux-x32   -o linux32"
   },
   "engines": {
     "node": "12.6.0"
@@ -13,7 +20,6 @@
   "license": "ISC",
   "dependencies": {
     "express": "^4.17.1",
-    "mysql": "^2.17.1",
     "socket.io": "^2.2.0"
   }
 }
